@@ -8,7 +8,14 @@ const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('frutlle_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -17,6 +24,18 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // If returning from OAuth redirect with parameters in the URL, allow Login.jsx / processOAuthCallback to handle token exchange
+      const hasOAuthParams = typeof window !== 'undefined' && (
+        window.location.search.includes('code=') || 
+        window.location.hash.includes('access_token=') ||
+        window.location.search.includes('error=') ||
+        window.location.hash.includes('error=')
+      );
+      if (hasOAuthParams) {
+        setLoading(false);
+        return;
+      }
+
       try {
         // 1. Verify active HTTP-only cookie session directly with Express backend
         const { data } = await axios.get(getApiUrl('/api/auth/profile'), { withCredentials: true });
@@ -26,7 +45,7 @@ export const AuthProvider = ({ children }) => {
           return;
         }
       } catch {
-        // Backend cookie not present or invalid
+        // Backend cookie not present or cross-origin restricted
       }
 
       // 2. Fallback: Check if active Supabase OAuth session exists that can be exchanged
@@ -46,7 +65,21 @@ export const AuthProvider = ({ children }) => {
         // Ignore OAuth session exchange error
       }
 
-      // 3. No active session found
+      // 3. Fallback: If Supabase has active user, preserve cached user
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          const cached = localStorage.getItem('frutlle_user');
+          if (cached) {
+            setUser(JSON.parse(cached));
+            return;
+          }
+        }
+      } catch {
+        // Ignore
+      }
+
+      // 4. No active session found
       setUser(null);
       localStorage.removeItem('frutlle_user');
       sessionStorage.removeItem('frutlle_coupon');
@@ -115,7 +148,10 @@ export const AuthProvider = ({ children }) => {
 
   const loginWithGoogle = async () => {
     try {
-      const redirectUrl = `${window.location.origin}/login`;
+      const origin = (typeof window !== 'undefined' && window.location.origin)
+        ? window.location.origin
+        : 'https://frutlle.vercel.app';
+      const redirectUrl = `${origin}/login`;
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -164,29 +200,71 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const processOAuthCallback = async (code) => {
+  const processOAuthCallback = async (code, hashTokens = null) => {
     try {
       let session = null;
+
+      // 1. If PKCE authorization code is present, exchange code for session
       if (code) {
         const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
-          console.warn('exchangeCodeForSession warning:', exchangeError.message);
+          console.warn('[AUTH] exchangeCodeForSession notice:', exchangeError.message);
         } else if (data?.session) {
           session = data.session;
         }
       }
 
+      // 2. If access_token was passed in URL hash fragment (implicit flow), apply it directly
+      if (!session && hashTokens?.accessToken) {
+        try {
+          const { data: setData } = await supabase.auth.setSession({
+            access_token: hashTokens.accessToken,
+            refresh_token: hashTokens.refreshToken || ''
+          });
+          if (setData?.session) {
+            session = setData.session;
+          }
+        } catch (setErr) {
+          console.warn('[AUTH] setSession notice:', setErr.message);
+        }
+      }
+
+      // 3. Fallback: Check if client has session in internal storage
       if (!session) {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-        session = sessionData?.session;
+        if (!sessionError && sessionData?.session) {
+          session = sessionData.session;
+        }
+      }
+
+      // 4. Brief grace period for async auth state change to settle
+      if (!session) {
+        session = await new Promise((resolve) => {
+          let resolved = false;
+          const timeout = setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              sub?.unsubscribe?.();
+              resolve(null);
+            }
+          }, 1500);
+
+          const { data: { subscription: sub } } = supabase.auth.onAuthStateChange((event, s) => {
+            if (s?.access_token && !resolved) {
+              resolved = true;
+              clearTimeout(timeout);
+              sub?.unsubscribe?.();
+              resolve(s);
+            }
+          });
+        });
       }
 
       if (!session || !session.access_token) {
         throw new Error('Unable to obtain authenticated OAuth session from Supabase.');
       }
 
-      // Synchronize with Express backend to set HTTP-only cookie and verified user record
+      // 5. Synchronize with Express backend to verify user and set HTTP-only session cookie
       const { data } = await axios.post(getApiUrl('/api/auth/google'), {
         accessToken: session.access_token
       });
@@ -195,7 +273,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('frutlle_user', JSON.stringify(data));
       return { success: true, user: data };
     } catch (error) {
-      console.error('OAuth callback processing failed:', error);
+      console.error('OAuth callback processing failed:', error.message || 'Authentication error');
       return {
         success: false,
         error: extractErrorMessage(error)

@@ -59,13 +59,18 @@ const Login = () => {
       }
 
       const code = searchParams.get('code');
-      const hasHashToken = hashParams.has('access_token');
+      const hashAccessToken = hashParams.get('access_token');
+      const hashRefreshToken = hashParams.get('refresh_token');
 
-      if (code || hasHashToken) {
+      if (code || hashAccessToken || hashParams.has('access_token')) {
         setIsProcessingOAuth(true);
         setAuthError('');
         try {
-          const result = await processOAuthCallback(code);
+          const hashTokens = hashAccessToken ? {
+            accessToken: hashAccessToken,
+            refreshToken: hashRefreshToken || ''
+          } : null;
+          const result = await processOAuthCallback(code, hashTokens);
           if (result && !result.success) {
             setAuthError(result.error || 'Failed to complete Google Sign-In.');
           }
@@ -128,7 +133,7 @@ const Login = () => {
       } else {
         // Normal customer: redirect to customer-facing page (home or intended customer route)
         // Strictly deny admin access if customer attempted to access an admin URL
-        if (rawFrom && typeof rawFrom === 'string' && !rawFrom.startsWith('/admin')) {
+        if (rawFrom && typeof rawFrom === 'string' && !rawFrom.startsWith('/admin') && !rawFrom.startsWith('/auth/callback') && !rawFrom.startsWith('/login')) {
           targetFrom = getSafeInternalRedirect(rawFrom, '/');
         } else {
           targetFrom = '/';

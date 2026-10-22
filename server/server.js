@@ -34,9 +34,28 @@ if (missingEnv.length > 0) {
 
 const app = express();
 
+const allowedOrigins = [
+  'https://frutlle.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/+$/, '') : null
+].filter(Boolean);
+
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const normalizedOrigin = origin.replace(/\/+$/, '');
+    const isAllowed = allowedOrigins.includes(origin) ||
+                      allowedOrigins.includes(normalizedOrigin) ||
+                      /^https:\/\/frutlle(-[a-z0-9]+)*\.vercel\.app$/.test(normalizedOrigin);
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
