@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import axios, { getApiUrl } from '../../utils/api';
 import { ArrowLeft, Ticket, Percent, DollarSign, Calendar, Save, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '../../utils/currency';
 
@@ -56,7 +56,7 @@ const AdminAddCoupon = () => {
       if (!payload.expires_at) payload.expires_at = null;
       if (!payload.starts_at) payload.starts_at = new Date().toISOString();
 
-      await axios.post('/api/coupons', payload, { withCredentials: true });
+      await axios.post(getApiUrl('/api/coupons'), payload, { withCredentials: true });
       navigate('/admin/coupons');
     } catch (err) {
       setError(err.response?.data?.message || err.message);

@@ -6,7 +6,7 @@ import {
   Truck, Leaf, ShieldCheck,
   Loader2, ShoppingBag
 } from 'lucide-react';
-import axios from 'axios';
+import axios, { getApiUrl, getAssetUrl } from '../utils/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { products as localProducts } from '../data/products';
@@ -66,7 +66,7 @@ const ProductDetails = () => {
 
         let currentProduct = null;
         try {
-          const { data } = await axios.get(`/api/products/${id}`);
+          const { data } = await axios.get(getApiUrl(`/api/products/${id}`));
           currentProduct = data;
         } catch (apiErr) {
           // Fallback to local products if API returns error (e.g. for mock/legacy ID)
@@ -89,7 +89,7 @@ const ProductDetails = () => {
 
         // Fetch Related Products
         try {
-          const { data: allProducts } = await axios.get('/api/products');
+          const { data: allProducts } = await axios.get(getApiUrl('/api/products'));
           const others = allProducts.filter(
             p => (p.id !== currentProduct.id && p._id !== currentProduct._id) && p.isActive !== false
           );
@@ -256,9 +256,9 @@ const ProductDetails = () => {
 
   // Image Gallery Preparation
   const galleryImages = [
-    { url: product.image, label: 'Hero View' },
-    { url: product.image, label: 'Detail View' },
-    { url: product.image, label: 'Origin & Batch' }
+    { url: getAssetUrl(product.image), label: 'Hero View' },
+    { url: getAssetUrl(product.image), label: 'Detail View' },
+    { url: getAssetUrl(product.image), label: 'Origin & Batch' }
   ];
 
   // Pricing calculations
@@ -327,7 +327,7 @@ const ProductDetails = () => {
               </div>
 
               <img 
-                src={galleryImages[selectedImageIndex]?.url || product.image} 
+                src={galleryImages[selectedImageIndex]?.url || getAssetUrl(product.image)} 
                 alt={product.name} 
                 className="pdp-main-image"
                 loading="eager"
@@ -668,7 +668,7 @@ const ProductDetails = () => {
                 >
                   <div className="pdp-related-img-box">
                     <img 
-                      src={relProduct.image} 
+                      src={getAssetUrl(relProduct.image)} 
                       alt={relProduct.name} 
                       className="pdp-related-img"
                       loading="lazy" 
@@ -701,7 +701,7 @@ const ProductDetails = () => {
             <div className="pdp-sticky-inner">
               <div className="pdp-sticky-product">
                 <img 
-                  src={product.image} 
+                  src={getAssetUrl(product.image)} 
                   alt={product.name} 
                   className="pdp-sticky-thumb" 
                 />

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios, { getApiUrl } from '../utils/api';
 import { supabase } from '../utils/supabase';
 
 const AuthContext = createContext();
@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       try {
         // 1. Verify active HTTP-only cookie session directly with Express backend
-        const { data } = await axios.get('/api/auth/profile', { withCredentials: true });
+        const { data } = await axios.get(getApiUrl('/api/auth/profile'), { withCredentials: true });
         if (data && data.role) {
           setUser(data);
           localStorage.setItem('frutlle_user', JSON.stringify(data));
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         if (sessionData?.session?.access_token) {
-          const { data: exchangeData } = await axios.post('/api/auth/google', {
+          const { data: exchangeData } = await axios.post(getApiUrl('/api/auth/google'), {
             accessToken: sessionData.session.access_token
           });
           if (exchangeData && exchangeData.role) {
@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      const { data } = await axios.post('/api/auth/login', { 
+      const { data } = await axios.post(getApiUrl('/api/auth/login'), { 
         email: email.trim(), 
         password 
       });
@@ -91,7 +91,7 @@ export const AuthProvider = ({ children }) => {
           password
         });
         if (!sbError && sbData?.session?.access_token) {
-          const { data: userData } = await axios.post('/api/auth/google', {
+          const { data: userData } = await axios.post(getApiUrl('/api/auth/google'), {
             accessToken: sbData.session.access_token
           });
           setUser(userData);
@@ -187,7 +187,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       // Synchronize with Express backend to set HTTP-only cookie and verified user record
-      const { data } = await axios.post('/api/auth/google', {
+      const { data } = await axios.post(getApiUrl('/api/auth/google'), {
         accessToken: session.access_token
       });
 
@@ -213,7 +213,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     setLoading(true);
     try {
-      const { data } = await axios.post('/api/auth/register', { name, email, password });
+      const { data } = await axios.post(getApiUrl('/api/auth/register'), { name, email, password });
       setUser(data);
       localStorage.setItem('frutlle_user', JSON.stringify(data));
       return { success: true };
@@ -261,7 +261,7 @@ export const AuthProvider = ({ children }) => {
       const accessToken = sessionData?.session?.access_token;
       if (accessToken) {
         try {
-          await axios.post('/api/auth/reset-password', {
+          await axios.post(getApiUrl('/api/auth/reset-password'), {
             accessToken,
             newPassword
           });
@@ -302,7 +302,7 @@ export const AuthProvider = ({ children }) => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
-      await axios.post('/api/auth/logout');
+      await axios.post(getApiUrl('/api/auth/logout'));
     } catch (error) {
       console.error('Logout error:', error);
     } finally {

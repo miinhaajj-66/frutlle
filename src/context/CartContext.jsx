@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
-import axios from 'axios';
+import axios, { getApiUrl } from '../utils/api';
 import { useAuth } from './AuthContext';
 
 const CartContext = createContext();
@@ -118,7 +118,7 @@ export const CartProvider = ({ children }) => {
 
     // 4. Asynchronously resolve authoritative cart from the database backend
     axios
-      .get('/api/cart', { withCredentials: true })
+      .get(getApiUrl('/api/cart'), { withCredentials: true })
       .then((res) => {
         // Discard response if user changed while request was in-flight
         if (requestSeqRef.current !== currentSeq) return;
@@ -128,7 +128,7 @@ export const CartProvider = ({ children }) => {
         if (hadGuestMerge) {
           // If guest items were merged on login, push the combined state to the server
           axios
-            .put('/api/cart', { items: initialUserItems }, { withCredentials: true })
+            .put(getApiUrl('/api/cart'), { items: initialUserItems }, { withCredentials: true })
             .catch(() => {});
         } else if (serverItems.length > 0) {
           setCart(serverItems);
@@ -136,7 +136,7 @@ export const CartProvider = ({ children }) => {
         } else if (cachedUserItems.length > 0) {
           // Sync local items to server if server was empty
           axios
-            .put('/api/cart', { items: cachedUserItems }, { withCredentials: true })
+            .put(getApiUrl('/api/cart'), { items: cachedUserItems }, { withCredentials: true })
             .catch(() => {});
         } else {
           setCart([]);
@@ -166,7 +166,7 @@ export const CartProvider = ({ children }) => {
 
     if (uid) {
       axios
-        .put('/api/cart', { items: updatedCart }, { withCredentials: true })
+        .put(getApiUrl('/api/cart'), { items: updatedCart }, { withCredentials: true })
         .catch((err) => {
           console.warn('[CART] Failed to sync update to server:', err.message);
         });
@@ -242,7 +242,7 @@ export const CartProvider = ({ children }) => {
 
     if (uid) {
       axios
-        .delete('/api/cart', { withCredentials: true })
+        .delete(getApiUrl('/api/cart'), { withCredentials: true })
         .catch((err) => {
           console.warn('[CART] Failed to clear server cart:', err.message);
         });

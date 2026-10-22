@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios, { getApiUrl } from '../../utils/api';
 import { formatCurrency } from '../../utils/currency';
 import { Plus, Search, MoreVertical, Edit, Trash2, Ticket, CheckCircle, Clock } from 'lucide-react';
 
@@ -13,10 +13,10 @@ const AdminCoupons = () => {
   const fetchCouponsAndStats = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get('/api/coupons', { withCredentials: true });
+      const { data } = await axios.get(getApiUrl('/api/coupons'), { withCredentials: true });
       setCoupons(data);
       
-      const { data: statsData } = await axios.get('/api/coupons/stats', { withCredentials: true });
+      const { data: statsData } = await axios.get(getApiUrl('/api/coupons/stats'), { withCredentials: true });
       if (statsData) {
         setStats(statsData);
       }
@@ -34,7 +34,7 @@ const AdminCoupons = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this coupon? This action cannot be undone.')) {
       try {
-        await axios.delete(`/api/coupons/${id}`, { withCredentials: true });
+        await axios.delete(getApiUrl(`/api/coupons/${id}`), { withCredentials: true });
         fetchCouponsAndStats();
       } catch (err) {
         console.error('Failed to delete coupon', err);
@@ -45,7 +45,7 @@ const AdminCoupons = () => {
   const handleToggleStatus = async (coupon) => {
     try {
       const newStatus = coupon.status === 'active' ? 'inactive' : 'active';
-      await axios.put(`/api/coupons/${coupon.id}`, { status: newStatus }, { withCredentials: true });
+      await axios.put(getApiUrl(`/api/coupons/${coupon.id}`), { status: newStatus }, { withCredentials: true });
       fetchCouponsAndStats();
     } catch (err) {
       console.error('Failed to toggle coupon status', err);

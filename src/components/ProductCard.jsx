@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency } from '../utils/currency';
+import { getAssetUrl } from '../utils/api';
 import './ProductCard.css';
 
 const ProductCard = ({ product, index }) => {
@@ -49,7 +50,7 @@ const ProductCard = ({ product, index }) => {
         style={{ cursor: 'pointer' }}
       >
         <img 
-          src={product.image} 
+          src={getAssetUrl(product.image)} 
           alt={product.name} 
           className="product-image"
         />

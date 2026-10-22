@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import axios from 'axios';
+import axios, { getApiUrl } from '../../utils/api';
 import { 
   LayoutDashboard, 
   ShoppingBag, 
@@ -23,7 +23,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   const fetchUnreadCount = async () => {
     try {
-      const { data } = await axios.get('/api/messages/unread-count', { withCredentials: true });
+      const { data } = await axios.get(getApiUrl('/api/messages/unread-count'), { withCredentials: true });
       if (typeof data?.unreadCount === 'number') {
         setUnreadMessagesCount(data.unreadCount);
       }

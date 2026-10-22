@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Package, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import axios, { getApiUrl } from '../../utils/api';
 import { formatCurrency } from '../../utils/currency';
 
 const Dashboard = () => {
@@ -29,8 +29,8 @@ const Dashboard = () => {
       try {
         setLoading(true);
         const [ordersRes, productsRes] = await Promise.all([
-          axios.get('/api/orders', { withCredentials: true }),
-          axios.get('/api/products')
+          axios.get(getApiUrl('/api/orders'), { withCredentials: true }),
+          axios.get(getApiUrl('/api/products'))
         ]);
 
         const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];

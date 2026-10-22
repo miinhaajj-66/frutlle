@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { Ticket, X, Check, Loader2 } from 'lucide-react';
-import axios from 'axios';
+import axios, { getApiUrl } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
 
 const FREE_SHIPPING_THRESHOLD = 1000;
@@ -47,7 +47,7 @@ const Checkout = () => {
     setCouponError('');
     
     try {
-      const { data } = await axios.post('/api/coupons/validate', {
+      const { data } = await axios.post(getApiUrl('/api/coupons/validate'), {
         code: couponCodeInput,
         subtotal: cartTotal
       }, { withCredentials: true });
@@ -101,7 +101,7 @@ const Checkout = () => {
         ...(validCoupon && { couponCode: validCoupon.code })
       };
 
-      const { data } = await axios.post('/api/orders', orderData, { withCredentials: true });
+      const { data } = await axios.post(getApiUrl('/api/orders'), orderData, { withCredentials: true });
       
       clearCart();
       sessionStorage.removeItem('frutlle_coupon');

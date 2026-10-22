@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Phone, MapPin, Clock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import axios from 'axios';
+import axios, { getApiUrl } from '../utils/api';
 
 const Contact = () => {
   const [formState, setFormState] = useState({
@@ -48,7 +48,7 @@ const Contact = () => {
     setErrorMessage('');
 
     try {
-      await axios.post('/api/messages', {
+      await axios.post(getApiUrl('/api/messages'), {
         name: formState.name.trim(),
         email: formState.email.trim(),
         subject: formState.subject.trim(),

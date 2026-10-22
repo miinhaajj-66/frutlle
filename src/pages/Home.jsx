@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios, { getApiUrl } from '../utils/api';
 import ProductCard from '../components/ProductCard';
 import heroImg from '../assets/images/jam_hero.jpg';
 import './Home.css';
@@ -13,7 +13,7 @@ const Home = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const { data } = await axios.get('/api/products');
+        const { data } = await axios.get(getApiUrl('/api/products'));
         setFeaturedProducts(data.filter(p => p.isActive).slice(0, 3));
       } catch (error) {
         console.error('Error fetching products', error);

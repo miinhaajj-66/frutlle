@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios, { getApiUrl } from '../../utils/api';
 import { Trash2, Eye, EyeOff, CheckCircle, Package, Briefcase } from 'lucide-react';
 import './AdminReviews.css';
 
@@ -13,7 +13,7 @@ const AdminReviews = () => {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get('/api/reviews/admin', { withCredentials: true });
+      const { data } = await axios.get(getApiUrl('/api/reviews/admin'), { withCredentials: true });
       setReviews(data);
       setError(null);
     } catch (err) {
@@ -29,7 +29,7 @@ const AdminReviews = () => {
 
   const handleStatusChange = async (id, status) => {
     try {
-      await axios.put(`/api/reviews/admin/${id}`, { status }, { withCredentials: true });
+      await axios.put(getApiUrl(`/api/reviews/admin/${id}`), { status }, { withCredentials: true });
       fetchReviews();
     } catch (err) {
       alert("Failed to update status");
@@ -39,7 +39,7 @@ const AdminReviews = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to permanently delete this review?")) {
       try {
-        await axios.delete(`/api/reviews/admin/${id}`, { withCredentials: true });
+        await axios.delete(getApiUrl(`/api/reviews/admin/${id}`), { withCredentials: true });
         fetchReviews();
       } catch (err) {
         alert("Failed to delete review");

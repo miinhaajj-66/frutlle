@@ -6,7 +6,7 @@ import {
   Check, X, Ticket, ShieldCheck, Truck, RotateCcw, 
   Loader2, ArrowRight
 } from 'lucide-react';
-import axios from 'axios';
+import axios, { getApiUrl, getAssetUrl } from '../utils/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { products as localProducts } from '../data/products';
@@ -45,7 +45,7 @@ const Cart = () => {
   useEffect(() => {
     const fetchRecommended = async () => {
       try {
-        const { data } = await axios.get('/api/products');
+        const { data } = await axios.get(getApiUrl('/api/products'));
         const active = data.filter(p => p.isActive !== false);
         setRecommendedProducts(active.slice(0, 4));
       } catch {
@@ -90,7 +90,7 @@ const Cart = () => {
     setCouponError('');
 
     try {
-      const { data } = await axios.post('/api/coupons/validate', {
+      const { data } = await axios.post(getApiUrl('/api/coupons/validate'), {
         code,
         subtotal: cartTotal
       }, { withCredentials: true });
@@ -214,7 +214,7 @@ const Cart = () => {
                   >
                     <div className="cart-rec-img-box">
                       <img
-                        src={product.image}
+                        src={getAssetUrl(product.image)}
                         alt={product.name}
                         className="cart-rec-img"
                         loading="lazy"
@@ -334,7 +334,7 @@ const Cart = () => {
                       {/* Product Thumbnail */}
                       <Link to={`/products/${item.id}`} className="cart-item-image-box">
                         <img 
-                          src={item.image} 
+                          src={getAssetUrl(item.image)} 
                           alt={item.name} 
                           className="cart-item-image"
                         />

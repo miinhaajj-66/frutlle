@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, X, Save, Eye, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import axios, { getApiUrl } from '../../utils/api';
 import { formatCurrency } from '../../utils/currency';
 import './AdminAddProduct.css';
 
@@ -69,7 +69,7 @@ const AdminAddProduct = () => {
     formData.append('image', imageFile);
     
     try {
-      const { data } = await axios.post('/api/upload', formData, {
+      const { data } = await axios.post(getApiUrl('/api/upload'), formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         withCredentials: true
       });
@@ -105,7 +105,7 @@ const AdminAddProduct = () => {
         image: uploadedImageUrl
       };
 
-      await axios.post('/api/products', productPayload, {
+      await axios.post(getApiUrl('/api/products'), productPayload, {
         withCredentials: true
       });
 

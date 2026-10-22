@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import axios, { getApiUrl, getAssetUrl } from '../utils/api';
 import { 
   Search, X, ArrowUpDown, 
   Check, RefreshCw, AlertCircle, Plus, Minus, ArrowRight, Eye, ShieldCheck
@@ -54,7 +54,7 @@ const Products = () => {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await axios.get('/api/products');
+      const { data } = await axios.get(getApiUrl('/api/products'));
       if (Array.isArray(data) && data.length > 0) {
         setProducts(data.filter((p) => p.isActive !== false));
       } else {
@@ -441,7 +441,7 @@ const Products = () => {
                       aria-label={`View ${formatTitle(product.name)}`}
                     >
                       <img
-                        src={product.image}
+                        src={getAssetUrl(product.image)}
                         alt={formatTitle(product.name)}
                         className="frutlle-card-image"
                         loading={index < 3 ? 'eager' : 'lazy'}
@@ -580,7 +580,7 @@ const Products = () => {
                 {/* Modal Visual Stage */}
                 <div className="frutlle-qv-stage">
                   <img
-                    src={quickViewProduct.image}
+                    src={getAssetUrl(quickViewProduct.image)}
                     alt={formatTitle(quickViewProduct.name)}
                     className="frutlle-qv-img"
                     onError={(e) => {

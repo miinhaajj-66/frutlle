@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios, { getApiUrl } from '../../utils/api';
 import { 
   Mail, 
   MailOpen, 
@@ -32,7 +32,7 @@ const AdminMessages = () => {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await axios.get('/api/messages', { withCredentials: true });
+      const { data } = await axios.get(getApiUrl('/api/messages'), { withCredentials: true });
       if (data && Array.isArray(data.messages)) {
         setMessages(data.messages);
       } else {
@@ -67,7 +67,7 @@ const AdminMessages = () => {
     if (!msg.is_read) {
       try {
         const { data } = await axios.put(
-          `/api/messages/${msg.id}/read`,
+          getApiUrl(`/api/messages/${msg.id}/read`),
           { isRead: true },
           { withCredentials: true }
         );
@@ -96,7 +96,7 @@ const AdminMessages = () => {
 
     try {
       const { data } = await axios.put(
-        `/api/messages/${msg.id}/read`,
+        getApiUrl(`/api/messages/${msg.id}/read`),
         { isRead: newStatus },
         { withCredentials: true }
       );
@@ -123,7 +123,7 @@ const AdminMessages = () => {
     setDeletingId(id);
 
     try {
-      await axios.delete(`/api/messages/${id}`, { withCredentials: true });
+      await axios.delete(getApiUrl(`/api/messages/${id}`), { withCredentials: true });
       setMessages((prev) => prev.filter((m) => m.id !== id));
       if (selectedMessage && selectedMessage.id === id) {
         setSelectedMessage(null);

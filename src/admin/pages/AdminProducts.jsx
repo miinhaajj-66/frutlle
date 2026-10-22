@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, X, Check, Save } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import axios, { getApiUrl, getAssetUrl } from '../../utils/api';
 import { formatCurrency } from '../../utils/currency';
 
 const AdminProducts = () => {
@@ -27,7 +27,7 @@ const AdminProducts = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get('/api/products');
+      const { data } = await axios.get(getApiUrl('/api/products'));
       setProducts(data);
     } catch (error) {
       console.error('Error fetching products', error);
@@ -48,7 +48,7 @@ const AdminProducts = () => {
   const handleDeleteProduct = async (productId, productName) => {
     if (window.confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
       try {
-        await axios.delete(`/api/products/${productId}`, { withCredentials: true });
+        await axios.delete(getApiUrl(`/api/products/${productId}`), { withCredentials: true });
         showFeedback(`Product "${productName}" deleted successfully`);
         fetchProducts();
       } catch (err) {
@@ -61,7 +61,7 @@ const AdminProducts = () => {
   const handleToggleStatus = async (product) => {
     try {
       const newStatus = product.isActive ? 'Draft' : 'Active';
-      await axios.put(`/api/products/${product._id || product.id}`, { status: newStatus }, { withCredentials: true });
+      await axios.put(getApiUrl(`/api/products/${product._id || product.id}`), { status: newStatus }, { withCredentials: true });
       showFeedback(`Product "${product.name}" status set to ${newStatus}`);
       fetchProducts();
     } catch (err) {
@@ -95,7 +95,7 @@ const AdminProducts = () => {
     setSavingEdit(true);
 
     try {
-      await axios.put(`/api/products/${editingProduct._id || editingProduct.id}`, {
+      await axios.put(getApiUrl(`/api/products/${editingProduct._id || editingProduct.id}`), {
         name: editFormData.name,
         category: editFormData.category,
         price: Number(editFormData.price),
@@ -203,7 +203,7 @@ const AdminProducts = () => {
                     <td style={{ fontWeight: '500' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {product.image ? (
-                          <img src={product.image} alt={product.name} style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }} />
+                          <img src={getAssetUrl(product.image)} alt={product.name} style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }} />
                         ) : (
                           <div style={{ width: '40px', height: '40px', borderRadius: '4px', background: '#f5f5f5' }}></div>
                         )}

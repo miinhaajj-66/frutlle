@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import axios, { getApiUrl } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { products as localProducts } from '../../data/products';
 import { Star, CheckCircle, Edit2, Trash2, X, Quote } from 'lucide-react';
@@ -160,14 +160,14 @@ const ReviewFormModal = ({
     setSubmitState('loading');
     try {
       if (editingReview) {
-        await axios.put(`/api/reviews/${editingReview._id}`, {
+        await axios.put(getApiUrl(`/api/reviews/${editingReview._id}`), {
           rating: formData.rating,
           title: formData.title,
           comment: formData.comment,
         }, { withCredentials: true });
       } else {
         const isProductReview = !!formData.selectedProductId;
-        await axios.post('/api/reviews', {
+        await axios.post(getApiUrl('/api/reviews'), {
           type: isProductReview ? 'product' : 'service',
           productId: isProductReview ? formData.selectedProductId : null,
           rating: formData.rating,
@@ -310,7 +310,7 @@ const ReviewsSection = ({ product }) => {
       const url = product?.id 
         ? `/api/reviews?productId=${product.id}&page=${currentPage}&limit=6` 
         : `/api/reviews?page=${currentPage}&limit=6`;
-      const { data } = await axios.get(url);
+      const { data } = await axios.get(getApiUrl(url));
       setReviews(data.reviews || []);
       setTotalPages(data.pages || 1);
       setPage(data.page || 1);
@@ -343,7 +343,7 @@ const ReviewsSection = ({ product }) => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to remove your review?")) {
       try {
-        await axios.delete(`/api/reviews/${id}`, { withCredentials: true });
+        await axios.delete(getApiUrl(`/api/reviews/${id}`), { withCredentials: true });
         fetchReviews(page);
       } catch (err) {
         alert(err.response?.data?.message || 'Error deleting review.');
