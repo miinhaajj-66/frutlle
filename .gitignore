@@ -22,8 +22,11 @@ dist-ssr
 # Test and scratch scripts
 scratch/
 
-# Uploaded assets
-uploads/*
+# Uploaded assets (tracked so Render backend server includes product images on deployment)
+!uploads/*.jpg
+!uploads/*.jpeg
+!uploads/*.png
+!uploads/*.webp
 !uploads/.gitkeep
 
 # Server local data fallbacks

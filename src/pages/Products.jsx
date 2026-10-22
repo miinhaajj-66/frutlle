@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import axios, { getApiUrl, getAssetUrl } from '../utils/api';
+import axios, { getApiUrl, getAssetUrl, getFallbackImage } from '../utils/api';
 import { 
   Search, X, ArrowUpDown, 
   Check, RefreshCw, AlertCircle, Plus, Minus, ArrowRight, Eye, ShieldCheck
@@ -446,7 +446,10 @@ const Products = () => {
                         className="frutlle-card-image"
                         loading={index < 3 ? 'eager' : 'lazy'}
                         onError={(e) => {
-                          e.currentTarget.src = jamFallback;
+                          const fallback = getFallbackImage(product);
+                          if (e.currentTarget.src !== fallback) {
+                            e.currentTarget.src = fallback;
+                          }
                         }}
                       />
                     </Link>
@@ -584,7 +587,10 @@ const Products = () => {
                     alt={formatTitle(quickViewProduct.name)}
                     className="frutlle-qv-img"
                     onError={(e) => {
-                      e.currentTarget.src = jamFallback;
+                      const fallback = getFallbackImage(quickViewProduct);
+                      if (e.currentTarget.src !== fallback) {
+                        e.currentTarget.src = fallback;
+                      }
                     }}
                   />
                   <div className="frutlle-qv-stage-stamp">

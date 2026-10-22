@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency } from '../utils/currency';
-import { getAssetUrl } from '../utils/api';
+import { getAssetUrl, getFallbackImage } from '../utils/api';
 import './ProductCard.css';
 
 const ProductCard = ({ product, index }) => {
@@ -53,6 +53,12 @@ const ProductCard = ({ product, index }) => {
           src={getAssetUrl(product.image)} 
           alt={product.name} 
           className="product-image"
+          onError={(e) => {
+            const fallback = getFallbackImage(product);
+            if (e.currentTarget.src !== fallback) {
+              e.currentTarget.src = fallback;
+            }
+          }}
         />
         <div className="product-overlay">
           <span onClick={handleNavigate}>View Details</span>

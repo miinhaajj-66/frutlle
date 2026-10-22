@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios, { getApiUrl, getAssetUrl } from '../../utils/api';
+import axios, { getApiUrl, getAssetUrl, getFallbackImage } from '../../utils/api';
 import { Search, Eye, X, Check, Clock, Package, MapPin, User, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '../../utils/currency';
@@ -298,7 +298,15 @@ const AdminOrders = () => {
                         <div key={item.id || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: idx < viewingOrder.order_items.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             {item.image && (
-                              <img src={getAssetUrl(item.image)} alt={item.name} style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }} />
+                              <img 
+                                src={getAssetUrl(item.image)} 
+                                alt={item.name} 
+                                style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }} 
+                                onError={(e) => {
+                                  const fb = getFallbackImage(item);
+                                  if (e.currentTarget.src !== fb) e.currentTarget.src = fb;
+                                }}
+                              />
                             )}
                             <div>
                               <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{item.name}</div>

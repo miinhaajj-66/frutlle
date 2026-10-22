@@ -6,7 +6,7 @@ import {
   Check, X, Ticket, ShieldCheck, Truck, RotateCcw, 
   Loader2, ArrowRight
 } from 'lucide-react';
-import axios, { getApiUrl, getAssetUrl } from '../utils/api';
+import axios, { getApiUrl, getAssetUrl, getFallbackImage } from '../utils/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { products as localProducts } from '../data/products';
@@ -218,6 +218,12 @@ const Cart = () => {
                         alt={product.name}
                         className="cart-rec-img"
                         loading="lazy"
+                        onError={(e) => {
+                          const fallback = getFallbackImage(product);
+                          if (e.currentTarget.src !== fallback) {
+                            e.currentTarget.src = fallback;
+                          }
+                        }}
                       />
                     </div>
                     <span className="cart-rec-category">{product.category || 'Preserve'}</span>
@@ -337,6 +343,12 @@ const Cart = () => {
                           src={getAssetUrl(item.image)} 
                           alt={item.name} 
                           className="cart-item-image"
+                          onError={(e) => {
+                            const fallback = getFallbackImage(item);
+                            if (e.currentTarget.src !== fallback) {
+                              e.currentTarget.src = fallback;
+                            }
+                          }}
                         />
                       </Link>
 

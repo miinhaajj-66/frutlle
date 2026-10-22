@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, X, Check, Save } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios, { getApiUrl, getAssetUrl } from '../../utils/api';
+import axios, { getApiUrl, getAssetUrl, getFallbackImage } from '../../utils/api';
 import { formatCurrency } from '../../utils/currency';
 
 const AdminProducts = () => {
@@ -203,7 +203,15 @@ const AdminProducts = () => {
                     <td style={{ fontWeight: '500' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {product.image ? (
-                          <img src={getAssetUrl(product.image)} alt={product.name} style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }} />
+                          <img 
+                            src={getAssetUrl(product.image)} 
+                            alt={product.name} 
+                            style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover' }} 
+                            onError={(e) => {
+                              const fb = getFallbackImage(product);
+                              if (e.currentTarget.src !== fb) e.currentTarget.src = fb;
+                            }}
+                          />
                         ) : (
                           <div style={{ width: '40px', height: '40px', borderRadius: '4px', background: '#f5f5f5' }}></div>
                         )}

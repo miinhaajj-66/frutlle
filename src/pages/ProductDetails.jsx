@@ -6,7 +6,7 @@ import {
   Truck, Leaf, ShieldCheck,
   Loader2, ShoppingBag
 } from 'lucide-react';
-import axios, { getApiUrl, getAssetUrl } from '../utils/api';
+import axios, { getApiUrl, getAssetUrl, getFallbackImage } from '../utils/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { products as localProducts } from '../data/products';
@@ -331,6 +331,12 @@ const ProductDetails = () => {
                 alt={product.name} 
                 className="pdp-main-image"
                 loading="eager"
+                onError={(e) => {
+                  const fallback = getFallbackImage(product);
+                  if (e.currentTarget.src !== fallback) {
+                    e.currentTarget.src = fallback;
+                  }
+                }}
               />
             </div>
 
@@ -345,7 +351,17 @@ const ProductDetails = () => {
                   className={`pdp-thumbnail-item ${selectedImageIndex === idx ? 'active' : ''}`}
                   onClick={() => setSelectedImageIndex(idx)}
                 >
-                  <img src={img.url} alt={`${product.name} thumbnail ${idx + 1}`} className="pdp-thumbnail-img" />
+                  <img 
+                    src={img.url} 
+                    alt={`${product.name} thumbnail ${idx + 1}`} 
+                    className="pdp-thumbnail-img" 
+                    onError={(e) => {
+                      const fallback = getFallbackImage(product);
+                      if (e.currentTarget.src !== fallback) {
+                        e.currentTarget.src = fallback;
+                      }
+                    }}
+                  />
                 </button>
               ))}
             </div>
@@ -672,6 +688,12 @@ const ProductDetails = () => {
                       alt={relProduct.name} 
                       className="pdp-related-img"
                       loading="lazy" 
+                      onError={(e) => {
+                        const fallback = getFallbackImage(relProduct);
+                        if (e.currentTarget.src !== fallback) {
+                          e.currentTarget.src = fallback;
+                        }
+                      }}
                     />
                   </div>
                   <span className="pdp-related-category">{relProduct.category || 'Preserve'}</span>
@@ -704,6 +726,12 @@ const ProductDetails = () => {
                   src={getAssetUrl(product.image)} 
                   alt={product.name} 
                   className="pdp-sticky-thumb" 
+                  onError={(e) => {
+                    const fallback = getFallbackImage(product);
+                    if (e.currentTarget.src !== fallback) {
+                      e.currentTarget.src = fallback;
+                    }
+                  }}
                 />
                 <div className="pdp-sticky-info">
                   <span className="pdp-sticky-title">{product.name}</span>
