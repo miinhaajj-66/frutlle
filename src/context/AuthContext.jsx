@@ -42,9 +42,17 @@ export const AuthProvider = ({ children }) => {
     }
   });
   const [loading, setLoading] = useState(true);
+  const authEpochRef = useRef(0);
   const navigate = useNavigate();
 
   useEffect(() => {
+    let isCancelled = false;
+    const requestEpoch = ++authEpochRef.current;
+
+    const isStale = () => {
+      return isCancelled || authEpochRef.current !== requestEpoch || isExplicitLogoutActive();
+    };
+
     // 1. Listen for Supabase auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
@@ -62,16 +70,26 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
+    const withTimeout = (promise, ms = 3000) => {
+      let timer;
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Operation timed out')), ms);
+      });
+      return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+    };
+
     const checkAuth = async () => {
-      // If user explicitly logged out, do not auto-restore from cookies, Supabase, or localStorage
-      if (isExplicitLogoutActive()) {
-        setUser(null);
-        try {
-          localStorage.removeItem('frutlle_user');
-        } catch {
-          // ignore
+      // If user explicitly logged out or request is stale, do not auto-restore
+      if (isStale()) {
+        if (!isCancelled && authEpochRef.current === requestEpoch) {
+          setUser(null);
+          try {
+            localStorage.removeItem('frutlle_user');
+          } catch {
+            // ignore
+          }
+          setLoading(false);
         }
-        setLoading(false);
         return;
       }
 
@@ -83,63 +101,105 @@ export const AuthProvider = ({ children }) => {
         window.location.hash.includes('error=')
       );
       if (hasOAuthParams) {
-        setLoading(false);
+        if (!isCancelled && authEpochRef.current === requestEpoch) {
+          setLoading(false);
+        }
         return;
       }
 
+      let isExplicitlyRejected = false;
+
       try {
         // 1. Verify active HTTP-only cookie session directly with Express backend
-        const { data } = await axios.get(getApiUrl('/api/auth/profile'), { withCredentials: true });
+        const { data } = await withTimeout(
+          axios.get(getApiUrl('/api/auth/profile'), { withCredentials: true }),
+          3000
+        );
+        if (isStale()) return;
         if (data && data.role) {
           setUser(data);
-          localStorage.setItem('frutlle_user', JSON.stringify(data));
+          try {
+            localStorage.setItem('frutlle_user', JSON.stringify(data));
+          } catch {
+            // ignore
+          }
           return;
         }
-      } catch {
-        // Backend cookie not present or cross-origin restricted
+      } catch (err) {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          isExplicitlyRejected = true;
+        }
       }
 
-      // 2. Fallback: Check if active Supabase OAuth session exists that can be exchanged
+      if (isStale()) return;
+
+      // 2. Check if active Supabase OAuth session exists that can be verified and exchanged with backend
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
+        const sessionRes = await withTimeout(supabase.auth.getSession(), 2500);
+        if (isStale()) return;
+        const sessionData = sessionRes?.data;
         if (sessionData?.session?.access_token) {
-          const { data: exchangeData } = await axios.post(getApiUrl('/api/auth/google'), {
-            accessToken: sessionData.session.access_token
-          });
+          const { data: exchangeData } = await withTimeout(
+            axios.post(getApiUrl('/api/auth/google'), {
+              accessToken: sessionData.session.access_token
+            }),
+            3000
+          );
+          if (isStale()) return;
           if (exchangeData && exchangeData.role) {
             setUser(exchangeData);
-            localStorage.setItem('frutlle_user', JSON.stringify(exchangeData));
+            try {
+              localStorage.setItem('frutlle_user', JSON.stringify(exchangeData));
+            } catch {
+              // ignore
+            }
             return;
           }
         }
-      } catch {
-        // Ignore OAuth session exchange error
+      } catch (err) {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          isExplicitlyRejected = true;
+        }
       }
 
-      // 3. Fallback: If Supabase has active user, preserve cached user
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData?.user) {
+      if (isStale()) return;
+
+      // 3. Session resolution:
+      // If server explicitly returned 401/403 unauthorized, the session is expired or revoked.
+      if (isExplicitlyRejected) {
+        setUser(null);
+        try {
+          localStorage.removeItem('frutlle_user');
+        } catch {
+          // ignore
+        }
+      } else {
+        // If request timed out or server is temporarily unreachable, do not accidentally wipe
+        // an existing valid session from localStorage or create an infinite redirect loop.
+        try {
           const cached = localStorage.getItem('frutlle_user');
           if (cached) {
-            setUser(JSON.parse(cached));
-            return;
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.role) {
+              setUser(parsed);
+              return;
+            }
           }
+        } catch {
+          // ignore JSON parse error
         }
-      } catch {
-        // Ignore
+        setUser(null);
       }
-
-      // 4. No active session found
-      setUser(null);
-      localStorage.removeItem('frutlle_user');
     };
 
     checkAuth().finally(() => {
-      setLoading(false);
+      if (!isCancelled && authEpochRef.current === requestEpoch) {
+        setLoading(false);
+      }
     });
 
     return () => {
+      isCancelled = true;
       subscription?.unsubscribe();
     };
   }, []);
@@ -161,6 +221,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
+    authEpochRef.current += 1;
     clearExplicitLogout();
     setLoading(true);
     try {
@@ -346,6 +407,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (name, email, password) => {
+    authEpochRef.current += 1;
     clearExplicitLogout();
     setLoading(true);
     try {
@@ -438,6 +500,7 @@ export const AuthProvider = ({ children }) => {
   // Executes the actual backend logout, clears session and redirects ("Yes, Log Out")
   const confirmLogout = async () => {
     if (isLoggingOutRef.current || isLoggingOut) return;
+    authEpochRef.current += 1;
     isLoggingOutRef.current = true;
     setIsLoggingOut(true);
 

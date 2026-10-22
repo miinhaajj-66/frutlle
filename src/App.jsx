@@ -17,6 +17,7 @@ import ResetPassword from './pages/ResetPassword';
 
 import Reviews from './pages/Reviews';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminErrorBoundary from './components/AdminErrorBoundary';
 import AdminRoute from './components/AdminRoute';
 import AdminLayout from './admin/layouts/AdminLayout';
 import Dashboard from './admin/pages/Dashboard';
@@ -41,29 +42,9 @@ function App() {
       <ScrollToTop />
       {!isAdminRoute && <Navbar />}
       <main style={isAdminRoute ? { minHeight: '100vh', padding: 0 } : { minHeight: '80vh', paddingTop: 'var(--nav-height, 80px)' }}>
-        <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/:id" element={<ProductDetails />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-            <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/reviews" element={<Reviews />} />
-
-            
-            {/* Auth Routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/auth/callback" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/admin/login" element={<Login />} />
-            
-            {/* Admin Routes */}
-            <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+        {isAdminRoute ? (
+          <Routes location={location}>
+            <Route path="/admin" element={<AdminErrorBoundary><AdminRoute><AdminLayout /></AdminRoute></AdminErrorBoundary>}>
               <Route index element={<Dashboard />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="products" element={<AdminProducts />} />
@@ -72,10 +53,33 @@ function App() {
               <Route path="reviews" element={<AdminReviews />} />
               <Route path="coupons" element={<AdminCoupons />} />
               <Route path="coupons/add" element={<AdminAddCoupon />} />
-              <Route path="*" element={<Dashboard />} /> {/* Catch-all for unbuilt routes */}
+              <Route path="*" element={<Dashboard />} />
             </Route>
+            <Route path="/admin/login" element={<Login />} />
           </Routes>
-        </AnimatePresence>
+        ) : (
+          <AnimatePresence mode="wait">
+            <Routes location={location} key={location.pathname}>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/products/:id" element={<ProductDetails />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+              <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/reviews" element={<Reviews />} />
+
+              {/* Auth Routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/auth/callback" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/admin/login" element={<Login />} />
+            </Routes>
+          </AnimatePresence>
+        )}
       </main>
       {!isAdminRoute && <Footer />}
       <LogoutModal 
