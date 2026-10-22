@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { createClient } from '@supabase/supabase-js';
 import supabase from '../config/supabase.js';
-import generateToken from '../utils/generateToken.js';
+import generateToken, { getAuthCookieOptions } from '../utils/generateToken.js';
 
 const maskEmail = (str) => {
   if (!str || typeof str !== 'string' || !str.includes('@')) return 'unknown';
@@ -168,8 +168,15 @@ const registerUser = async (req, res, next) => {
 // @route   POST /api/auth/logout
 // @access  Public
 const logoutUser = (req, res) => {
+  const cookieOptions = getAuthCookieOptions();
+  res.clearCookie('jwt', {
+    ...cookieOptions,
+    maxAge: 0,
+    expires: new Date(0),
+  });
   res.cookie('jwt', '', {
-    httpOnly: true,
+    ...cookieOptions,
+    maxAge: 0,
     expires: new Date(0),
   });
   res.status(200).json({ message: 'Logged out successfully' });

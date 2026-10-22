@@ -7,9 +7,34 @@ const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
+const isExplicitLogoutActive = () => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return (
+      sessionStorage.getItem('frutlle_explicit_logout') === 'true' ||
+      localStorage.getItem('frutlle_logged_out') === 'true'
+    );
+  } catch {
+    return false;
+  }
+};
+
+const clearExplicitLogout = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem('frutlle_explicit_logout');
+    localStorage.removeItem('frutlle_logged_out');
+  } catch {
+    // ignore
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try {
+      if (isExplicitLogoutActive()) {
+        return null;
+      }
       const saved = localStorage.getItem('frutlle_user');
       return saved ? JSON.parse(saved) : null;
     } catch {
@@ -19,11 +44,37 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Configure axios to always send cookies
-  axios.defaults.withCredentials = true;
-
   useEffect(() => {
+    // 1. Listen for Supabase auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        setUser(null);
+        try {
+          localStorage.removeItem('frutlle_user');
+        } catch {
+          // ignore
+        }
+      } else if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (isExplicitLogoutActive()) {
+          setUser(null);
+          return;
+        }
+      }
+    });
+
     const checkAuth = async () => {
+      // If user explicitly logged out, do not auto-restore from cookies, Supabase, or localStorage
+      if (isExplicitLogoutActive()) {
+        setUser(null);
+        try {
+          localStorage.removeItem('frutlle_user');
+        } catch {
+          // ignore
+        }
+        setLoading(false);
+        return;
+      }
+
       // If returning from OAuth redirect with parameters in the URL, allow Login.jsx / processOAuthCallback to handle token exchange
       const hasOAuthParams = typeof window !== 'undefined' && (
         window.location.search.includes('code=') || 
@@ -82,12 +133,15 @@ export const AuthProvider = ({ children }) => {
       // 4. No active session found
       setUser(null);
       localStorage.removeItem('frutlle_user');
-      sessionStorage.removeItem('frutlle_coupon');
     };
 
     checkAuth().finally(() => {
       setLoading(false);
     });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const extractErrorMessage = (error) => {
@@ -107,6 +161,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
+    clearExplicitLogout();
     setLoading(true);
     try {
       const { data } = await axios.post(getApiUrl('/api/auth/login'), { 
@@ -147,6 +202,7 @@ export const AuthProvider = ({ children }) => {
   const loginAdmin = (email, password) => login(email, password);
 
   const loginWithGoogle = async () => {
+    clearExplicitLogout();
     try {
       const origin = (typeof window !== 'undefined' && window.location.origin)
         ? window.location.origin
@@ -202,6 +258,7 @@ export const AuthProvider = ({ children }) => {
 
   const processOAuthCallback = async (code, hashTokens = null) => {
     try {
+      clearExplicitLogout();
       let session = null;
 
       // 1. If PKCE authorization code is present, exchange code for session
@@ -289,6 +346,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (name, email, password) => {
+    clearExplicitLogout();
     setLoading(true);
     try {
       const { data } = await axios.post(getApiUrl('/api/auth/register'), { name, email, password });
@@ -379,25 +437,89 @@ export const AuthProvider = ({ children }) => {
   const confirmLogout = async () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
+
+    // 1. Immediately flag explicit logout in both sessionStorage and localStorage
     try {
-      await axios.post(getApiUrl('/api/auth/logout'));
+      sessionStorage.setItem('frutlle_explicit_logout', 'true');
+      localStorage.setItem('frutlle_logged_out', 'true');
+    } catch {
+      // ignore
+    }
+
+    // 2. Request backend to clear HTTP-Only JWT cookie with matching cookie options
+    try {
+      await axios.post(getApiUrl('/api/auth/logout'), {}, { withCredentials: true });
     } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.warn('Supabase signout notice:', err);
+      console.error('Logout error from backend:', error);
+    }
+
+    // 3. Await Supabase signOut and cleanly handle errors with fallback to local scope
+    try {
+      const { error: sbError } = await supabase.auth.signOut();
+      if (sbError) {
+        console.warn('Supabase global signOut error, falling back to local scope:', sbError.message);
+        await supabase.auth.signOut({ scope: 'local' });
       }
-      setUser(null);
+    } catch (err) {
+      console.warn('Supabase signOut notice, attempting local fallback:', err);
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch (localErr) {
+        console.warn('Supabase local signOut notice:', localErr);
+      }
+    }
+
+    // 4. Clear app user state and only FRUTLLE-related cached authentication data
+    // Cart data (frutlle_cart, frutlle_cart_guest, frutlle_cart_*) and wishlist are preserved
+    setUser(null);
+    try {
       localStorage.removeItem('frutlle_user');
-      sessionStorage.removeItem('frutlle_coupon');
+
+      // Clear any lingering Supabase auth token keys from localStorage without touching cart/wishlist
+      const authKeysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (
+          (key.startsWith('sb-') && (key.includes('auth') || key.includes('token'))) ||
+          key.startsWith('supabase.auth.')
+        )) {
+          authKeysToRemove.push(key);
+        }
+      }
+      authKeysToRemove.forEach((key) => localStorage.removeItem(key));
+    } catch (storageErr) {
+      console.warn('Notice clearing local storage auth keys:', storageErr);
+    }
+
+    try {
       sessionStorage.removeItem('frutlle_oauth_redirect');
       sessionStorage.removeItem('frutlle_oauth_pending_action');
-      setIsLoggingOut(false);
-      setIsLogoutModalOpen(false);
-      navigate('/login');
+    } catch {
+      // ignore
     }
+
+    // 5. Clean URL query parameters and hash if any OAuth callback params linger
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      try {
+        window.history.replaceState({}, document.title, '/login');
+      } catch {
+        // ignore
+      }
+    }
+
+    setIsLoggingOut(false);
+    setIsLogoutModalOpen(false);
+    navigate('/login', { replace: true });
+  };
+
+  const logout = async (options = {}) => {
+    // If triggered from a DOM/React click event, open the confirmation modal dialog
+    if (options && (options.nativeEvent || options.showModal)) {
+      requestLogout();
+      return;
+    }
+    // Direct or programmatic call (await logout()) executes the full logout handler
+    return await confirmLogout();
   };
 
   const value = {
@@ -412,7 +534,7 @@ export const AuthProvider = ({ children }) => {
     register,
     forgotPassword,
     updatePassword,
-    logout: requestLogout, // Standard logout triggers confirmation modal
+    logout,
     requestLogout,
     cancelLogout,
     confirmLogout,

@@ -63,6 +63,16 @@ const Login = () => {
       const hashRefreshToken = hashParams.get('refresh_token');
 
       if (code || hashAccessToken || hashParams.has('access_token')) {
+        const isExplicitlyLoggedOut = 
+          sessionStorage.getItem('frutlle_explicit_logout') === 'true' ||
+          localStorage.getItem('frutlle_logged_out') === 'true';
+
+        // Prevent processing stale OAuth callbacks if user explicitly logged out
+        if (isExplicitlyLoggedOut) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        }
+
         setIsProcessingOAuth(true);
         setAuthError('');
         try {
@@ -89,6 +99,12 @@ const Login = () => {
   // If already logged in, redirect based on trusted database role and process pending actions
   useEffect(() => {
     if (user) {
+      const isExplicitlyLoggedOut = 
+        sessionStorage.getItem('frutlle_explicit_logout') === 'true' ||
+        localStorage.getItem('frutlle_logged_out') === 'true';
+      if (isExplicitlyLoggedOut) {
+        return;
+      }
       let savedAction = null;
       try {
         const rawAction = sessionStorage.getItem('frutlle_oauth_pending_action');
@@ -147,6 +163,12 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
+    try {
+      sessionStorage.removeItem('frutlle_explicit_logout');
+      localStorage.removeItem('frutlle_logged_out');
+    } catch {
+      // ignore
+    }
     
     if (!email || !password) {
       setAuthError('Please enter both email and password.');
@@ -169,6 +191,12 @@ const Login = () => {
   const handleSocialLogin = async (provider) => {
     setAuthError('');
     setIsGoogleLoading(true);
+    try {
+      sessionStorage.removeItem('frutlle_explicit_logout');
+      localStorage.removeItem('frutlle_logged_out');
+    } catch {
+      // ignore
+    }
 
     // Cache intended destination before leaving for the external OAuth provider
     try {
