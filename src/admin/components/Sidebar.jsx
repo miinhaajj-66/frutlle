@@ -18,7 +18,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
-  const { logout } = useAuth();
+  const { logout, requestLogout, isLoggingOut } = useAuth();
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   const fetchUnreadCount = async () => {
@@ -104,12 +104,28 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         </NavLink>
 
         <button 
-          onClick={() => {
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            if (isLoggingOut) return;
             if (window.innerWidth <= 992 && toggleSidebar) toggleSidebar();
-            logout();
+            if (typeof requestLogout === 'function') {
+              requestLogout();
+            } else {
+              logout();
+            }
           }} 
+          disabled={isLoggingOut}
           className="admin-nav-item" 
-          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', marginTop: '15px', color: 'var(--frutlle-red)' }}
+          style={{ 
+            width: '100%', 
+            background: 'none', 
+            border: 'none', 
+            cursor: isLoggingOut ? 'not-allowed' : 'pointer', 
+            marginTop: '15px', 
+            color: 'var(--frutlle-red)',
+            opacity: isLoggingOut ? 0.6 : 1
+          }}
         >
           <LogOut className="admin-nav-icon" />
           Logout

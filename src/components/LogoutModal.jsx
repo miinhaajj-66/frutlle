@@ -86,10 +86,21 @@ const LogoutModal = ({
     };
   }, [isOpen, isProcessing, onClose]);
 
+  // Guarded actions to prevent duplicate triggers
+  const handleClose = () => {
+    if (isProcessing) return;
+    onClose();
+  };
+
+  const handleConfirm = () => {
+    if (isProcessing) return;
+    onConfirm();
+  };
+
   // Click outside backdrop to close
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget && !isProcessing) {
-      onClose();
+      handleClose();
     }
   };
 
@@ -161,7 +172,7 @@ const LogoutModal = ({
                 ref={cancelBtnRef}
                 type="button"
                 className="minimal-logout-btn minimal-logout-btn-secondary"
-                onClick={onClose}
+                onClick={handleClose}
                 disabled={isProcessing}
               >
                 Cancel
@@ -170,7 +181,7 @@ const LogoutModal = ({
               <button
                 type="button"
                 className="minimal-logout-btn minimal-logout-btn-primary"
-                onClick={onConfirm}
+                onClick={handleConfirm}
                 disabled={isProcessing}
               >
                 {isProcessing ? (
@@ -179,7 +190,7 @@ const LogoutModal = ({
                     <span>Logging Out...</span>
                   </>
                 ) : (
-                  <span>Log Out</span>
+                  <span>Logout</span>
                 )}
               </button>
             </div>

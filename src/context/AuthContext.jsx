@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios, { getApiUrl } from '../utils/api';
 import { supabase } from '../utils/supabase';
@@ -421,21 +421,24 @@ export const AuthProvider = ({ children }) => {
 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const isLoggingOutRef = useRef(false);
 
   // Opens the luxury confirmation dialog (triggered by any UI Logout button)
   const requestLogout = () => {
+    if (isLoggingOutRef.current || isLoggingOut) return;
     setIsLogoutModalOpen(true);
   };
 
   // Closes dialog and preserves session ("Stay Signed In", Escape, or click outside)
   const cancelLogout = () => {
-    if (isLoggingOut) return;
+    if (isLoggingOutRef.current || isLoggingOut) return;
     setIsLogoutModalOpen(false);
   };
 
   // Executes the actual backend logout, clears session and redirects ("Yes, Log Out")
   const confirmLogout = async () => {
-    if (isLoggingOut) return;
+    if (isLoggingOutRef.current || isLoggingOut) return;
+    isLoggingOutRef.current = true;
     setIsLoggingOut(true);
 
     // 1. Immediately flag explicit logout in both sessionStorage and localStorage
@@ -507,19 +510,19 @@ export const AuthProvider = ({ children }) => {
       }
     }
 
+    isLoggingOutRef.current = false;
     setIsLoggingOut(false);
     setIsLogoutModalOpen(false);
     navigate('/login', { replace: true });
   };
 
   const logout = async (options = {}) => {
-    // If triggered from a DOM/React click event, open the confirmation modal dialog
-    if (options && (options.nativeEvent || options.showModal)) {
-      requestLogout();
-      return;
+    // If explicitly instructed to bypass the confirmation dialog (e.g. force or immediate)
+    if (options && (options.force === true || options.immediate === true)) {
+      return await confirmLogout();
     }
-    // Direct or programmatic call (await logout()) executes the full logout handler
-    return await confirmLogout();
+    // By default, UI calls to logout() open the confirmation modal dialog
+    requestLogout();
   };
 
   const value = {
