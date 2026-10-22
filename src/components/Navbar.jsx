@@ -41,7 +41,7 @@ const Navbar = () => {
     >
       <div className="container nav-container">
         <Link to="/" className="brand-logo">
-          <img src="/Glossy%20Frutlle%20Origin%20Logo.png" alt="FRUTLLE" className="nav-logo" />
+          <img src="/Frutlle%20Logo.png" alt="FRUTLLE" className="nav-logo" />
         </Link>
 
         <nav className="desktop-nav">
@@ -58,16 +58,23 @@ const Navbar = () => {
 
         <div className="nav-actions">
           {user ? (
-            <button onClick={logout} className="cart-icon-wrapper auth-nav-icon" style={{ background: 'none', border: 'none', cursor: 'pointer' }} title="Logout">
-              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', marginRight: '4px' }}>Logout</span>
-            </button>
+            <div className="nav-auth-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {user.role === 'admin' && (
+                <Link to="/admin" className="cart-icon-wrapper auth-nav-icon nav-desktop-auth" style={{ textDecoration: 'none' }} title="Admin Dashboard">
+                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--frutlle-red)' }}>Admin</span>
+                </Link>
+              )}
+              <button onClick={logout} className="cart-icon-wrapper auth-nav-icon nav-desktop-auth" style={{ background: 'none', border: 'none', cursor: 'pointer' }} title="Logout">
+                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', marginRight: '4px' }}>Logout</span>
+              </button>
+            </div>
           ) : (
-            <Link to="/login" className="cart-icon-wrapper auth-nav-icon">
+            <Link to="/login" className="cart-icon-wrapper auth-nav-icon nav-desktop-auth" title="Account">
               <User size={24} strokeWidth={1.5} />
             </Link>
           )}
           
-          <Link to="/cart" className="cart-icon-wrapper">
+          <Link to="/cart" className="cart-icon-wrapper" aria-label="Shopping Cart">
             <ShoppingBag size={24} strokeWidth={1.5} />
             {cartCount > 0 && (
               <motion.span 
@@ -81,7 +88,7 @@ const Navbar = () => {
             )}
           </Link>
           
-          <button className="mobile-toggle" onClick={() => setIsOpen(!isOpen)}>
+          <button className="mobile-toggle" onClick={() => setIsOpen(!isOpen)} aria-label={isOpen ? "Close menu" : "Open menu"}>
             {isOpen ? <X size={28} strokeWidth={1.5} /> : <Menu size={28} strokeWidth={1.5} />}
           </button>
         </div>
@@ -100,8 +107,20 @@ const Navbar = () => {
                   {link.name}
                 </Link>
               ))}
+              {user && user.role === 'admin' && (
+                <Link to="/admin" className="mobile-nav-link" style={{ color: 'var(--frutlle-red)', fontWeight: 600 }}>
+                  Admin Dashboard
+                </Link>
+              )}
               {user ? (
-                <button onClick={logout} className="mobile-nav-link" style={{ background: 'none', border: 'none', textAlign: 'left', width: '100%', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}>
+                <button 
+                  onClick={() => {
+                    setIsOpen(false);
+                    logout();
+                  }} 
+                  className="mobile-nav-link" 
+                  style={{ background: 'none', border: 'none', textAlign: 'left', width: '100%', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}
+                >
                   Logout
                 </button>
               ) : (

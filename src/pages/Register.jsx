@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Info, Loader2, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import './Login.css'; // Reusing the same styles for consistency
 
 const Register = () => {
@@ -18,7 +19,9 @@ const Register = () => {
   const [authError, setAuthError] = useState('');
   
   const { register, loading } = useAuth();
+  const { addToCart } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
@@ -54,7 +57,18 @@ const Register = () => {
     if (result && !result.success) {
       setAuthError(result.error || 'Registration failed. Please try again.');
     } else {
-      navigate('/');
+      if (location.state?.action === 'addToCart' && location.state?.product) {
+        addToCart(location.state.product, location.state.quantity || 1);
+      } else if (location.state?.action === 'buyNow' && location.state?.product) {
+        addToCart(location.state.product, location.state.quantity || 1);
+        navigate('/checkout', { replace: true });
+        return;
+      }
+
+      const from = location.state?.from?.pathname 
+        ? `${location.state.from.pathname}${location.state.from.search || ''}` 
+        : (typeof location.state?.from === 'string' ? location.state.from : '/');
+      navigate(from, { replace: true });
     }
   };
 
@@ -73,7 +87,7 @@ const Register = () => {
         transition={{ delay: 0.1, duration: 0.4 }}
       >
         <div className="auth-header">
-          <img src="/Glossy%20Frutlle%20Origin%20Logo.png" alt="FRUTLLE" className="auth-logo" />
+          <img src="/Frutlle%20Logo.png" alt="FRUTLLE" className="auth-logo" />
           <h1 className="auth-title">Create Account</h1>
           <p className="auth-subtitle">Join FRUTLLE and experience the origin.</p>
         </div>
@@ -82,6 +96,30 @@ const Register = () => {
           <form className="auth-form" onSubmit={handleSubmit}>
             
             <AnimatePresence>
+              {location.state?.message && !authError && (
+                <motion.div 
+                  className="auth-info-banner"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.75rem 1rem',
+                    backgroundColor: 'rgba(217, 119, 6, 0.12)',
+                    color: '#b45309',
+                    border: '1px solid rgba(217, 119, 6, 0.3)',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    marginBottom: '1rem',
+                    fontWeight: '500'
+                  }}
+                >
+                  <Info size={18} />
+                  <span>{location.state.message}</span>
+                </motion.div>
+              )}
               {authError && (
                 <motion.div 
                   className="auth-error-message"
@@ -197,7 +235,7 @@ const Register = () => {
 
           <div className="auth-footer">
             Already have an account? 
-            <Link to="/login" className="auth-footer-link">LOG IN</Link>
+            <Link to="/login" state={location.state} className="auth-footer-link">LOG IN</Link>
           </div>
           
         </div>

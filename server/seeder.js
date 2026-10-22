@@ -1,23 +1,28 @@
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import connectDB from './config/db.js';
-import User from './models/User.js';
+import bcrypt from 'bcryptjs';
+import supabase from './config/supabase.js';
 
 dotenv.config();
-connectDB();
 
 const importData = async () => {
   try {
-    await User.deleteMany();
+    // Clear all existing users (for a fresh start)
+    await supabase.from('users').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'Aneesmon123', salt);
 
     const adminUser = {
       name: 'Admin',
       email: process.env.ADMIN_EMAIL || 'admin@frutllejam@gmail.com',
-      password: process.env.ADMIN_PASSWORD || 'Aneesmon123',
+      password: hashedPassword,
       role: 'admin',
     };
 
-    await User.create(adminUser);
+    const { error } = await supabase.from('users').insert([adminUser]);
+    
+    if (error) throw error;
+
     console.log('Data Imported - Admin created!');
     process.exit();
   } catch (error) {
@@ -28,7 +33,10 @@ const importData = async () => {
 
 const destroyData = async () => {
   try {
-    await User.deleteMany();
+    const { error } = await supabase.from('users').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    if (error) throw error;
+    
     console.log('Data Destroyed!');
     process.exit();
   } catch (error) {

@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
+import axios from 'axios';
 import { 
   LayoutDashboard, 
   ShoppingBag, 
@@ -6,6 +8,7 @@ import {
   Package, 
   Users, 
   MessageSquare, 
+  Mail,
   CreditCard,
   Ticket,
   Settings,
@@ -16,13 +19,32 @@ import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { logout } = useAuth();
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const { data } = await axios.get('/api/messages/unread-count', { withCredentials: true });
+      if (typeof data?.unreadCount === 'number') {
+        setUnreadMessagesCount(data.unreadCount);
+      }
+    } catch {
+      // Non-blocking
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const handleUpdate = () => fetchUnreadCount();
+    window.addEventListener('messages-updated', handleUpdate);
+    return () => window.removeEventListener('messages-updated', handleUpdate);
+  }, []);
 
   const navItems = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { name: 'Orders', path: '/admin/orders', icon: ShoppingBag },
     { name: 'Products', path: '/admin/products', icon: Package },
-    { name: 'Categories', path: '/admin/categories', icon: Tags },
     { name: 'Customers', path: '/admin/customers', icon: Users },
+    { name: 'Messages', path: '/admin/messages', icon: Mail, badgeKey: 'messages' },
     { name: 'Reviews', path: '/admin/reviews', icon: MessageSquare },
     { name: 'Payments', path: '/admin/payments', icon: CreditCard },
     { name: 'Coupons', path: '/admin/coupons', icon: Ticket },
@@ -32,7 +54,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   return (
     <aside className={`admin-sidebar ${isOpen ? 'open' : ''}`}>
       <div className="admin-sidebar-header">
-        <img src="/Glossy%20Frutlle%20Origin%20Logo.png" alt="FRUTLLE" className="admin-sidebar-logo" />
+        <img src="/Frutlle%20Logo.png" alt="FRUTLLE" className="admin-sidebar-logo" />
         <button className="admin-menu-btn" onClick={toggleSidebar}>
           <X size={24} />
         </button>
@@ -50,13 +72,45 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             }}
           >
             <item.icon className="admin-nav-icon" />
-            {item.name}
+            <span style={{ flex: 1 }}>{item.name}</span>
+            {item.badgeKey === 'messages' && unreadMessagesCount > 0 && (
+              <span style={{
+                backgroundColor: 'var(--frutlle-red)',
+                color: '#fff',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '9999px',
+                lineHeight: '1.2'
+              }}>
+                {unreadMessagesCount}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="admin-sidebar-footer">
-        <button onClick={logout} className="admin-nav-item" style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}>
+      <div className="admin-sidebar-footer" style={{ borderTop: '1px solid #eee', paddingTop: '15px' }}>
+        <div style={{ padding: '0 1.5rem', marginBottom: '8px', fontSize: '0.75rem', fontWeight: 'bold', color: '#999', textTransform: 'uppercase' }}>Storefront</div>
+        
+        <NavLink to="/" className="admin-nav-item">
+          <LayoutDashboard className="admin-nav-icon" />
+          Store Home
+        </NavLink>
+        
+        <NavLink to="/products" className="admin-nav-item">
+          <ShoppingBag className="admin-nav-icon" />
+          Store Products
+        </NavLink>
+
+        <button 
+          onClick={() => {
+            if (window.innerWidth <= 992 && toggleSidebar) toggleSidebar();
+            logout();
+          }} 
+          className="admin-nav-item" 
+          style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', marginTop: '15px', color: 'var(--frutlle-red)' }}
+        >
           <LogOut className="admin-nav-icon" />
           Logout
         </button>

@@ -1,0 +1,1026 @@
+/* ==========================================================================
+   PRODUCT DETAILS PAGE — AESOP / APPLE / COS MINIMALIST DESIGN SYSTEM
+   ========================================================================== */
+
+/* Page Canvas */
+.pdp-page {
+  background-color: #FAFAF8;
+  color: #1A1A1A;
+  min-height: 100vh;
+  padding-bottom: 6rem;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Container */
+.pdp-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* Breadcrumbs */
+.pdp-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1.5rem 0 2rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #767676;
+}
+
+.pdp-breadcrumb-link {
+  color: #767676;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.pdp-breadcrumb-link:hover {
+  color: #111111;
+}
+
+.pdp-breadcrumb-sep {
+  color: #C0BCB5;
+  font-size: 0.75rem;
+}
+
+.pdp-breadcrumb-current {
+  color: #111111;
+  font-weight: 500;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Main Grid Layout */
+.pdp-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 4.5rem;
+  align-items: start;
+  margin-bottom: 6rem;
+}
+
+/* ==========================================================================
+   LEFT COLUMN — PRODUCT GALLERY
+   ========================================================================== */
+.pdp-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  position: relative;
+}
+
+/* Main Image Frame */
+.pdp-main-image-wrapper {
+  position: relative;
+  background-color: #F4F3EE;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  user-select: none;
+}
+
+.pdp-main-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2.5rem;
+  transition: opacity 0.3s ease;
+}
+
+/* Floating Badges */
+.pdp-gallery-badge-container {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 6;
+}
+
+.pdp-badge-minimal {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  backdrop-filter: blur(8px);
+}
+
+.pdp-badge-sale {
+  background-color: rgba(169, 27, 36, 0.9);
+  color: #FFFFFF;
+}
+
+.pdp-badge-artisanal {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #1A1A1A;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+
+/* Thumbnails Strip */
+.pdp-thumbnails-strip {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 0.25rem 0;
+  scrollbar-width: none;
+}
+
+.pdp-thumbnails-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.pdp-thumbnail-item {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  background-color: #F4F3EE;
+  border: 1.5px solid transparent;
+  padding: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.pdp-thumbnail-item:hover {
+  border-color: #CFCBC2;
+}
+
+.pdp-thumbnail-item.active {
+  border-color: #111111;
+  background-color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.pdp-thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ==========================================================================
+   RIGHT COLUMN — PRODUCT INFORMATION
+   ========================================================================== */
+.pdp-info {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Category & Title */
+.pdp-category-tag {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #8C857B;
+  margin-bottom: 0.5rem;
+}
+
+.pdp-title {
+  font-size: clamp(2rem, 3.2vw, 2.75rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: #111111;
+  margin-bottom: 0.75rem;
+  font-family: var(--font-sans, sans-serif);
+}
+
+/* Reviews Summary Bar */
+.pdp-rating-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.pdp-stars {
+  display: inline-flex;
+  gap: 2px;
+  color: #111111;
+}
+
+.pdp-stars .star-filled {
+  color: #A91B24;
+}
+
+.pdp-stars .star-empty {
+  color: #D6D2CB;
+}
+
+.pdp-review-count {
+  font-size: 0.85rem;
+  color: #666666;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  transition: color 0.2s ease;
+}
+
+.pdp-review-count:hover {
+  color: #111111;
+}
+
+/* Price Display */
+.pdp-price-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 1rem 0 1.25rem;
+  border-top: 1px solid #EAE8E2;
+  border-bottom: 1px solid #EAE8E2;
+  margin-bottom: 1.5rem;
+}
+
+.pdp-current-price {
+  font-family: var(--font-sans);
+  font-size: 1.85rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: #111111;
+  font-variant-numeric: tabular-nums lining-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+.pdp-original-price {
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
+  color: #8C857B;
+  text-decoration: line-through;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.pdp-discount-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #A91B24;
+  background-color: #F8ECEC;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+}
+
+.pdp-weight-tag {
+  font-size: 0.95rem;
+  color: #767676;
+  margin-left: auto;
+}
+
+/* Stock Indicator */
+.pdp-stock-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 1.25rem;
+}
+
+.pdp-stock-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.pdp-stock-dot.in-stock {
+  background-color: #15803D;
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
+}
+
+.pdp-stock-dot.low-stock {
+  background-color: #D97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+}
+
+.pdp-stock-dot.out-of-stock {
+  background-color: #9CA3AF;
+}
+
+.pdp-stock-status.in-stock { color: #15803D; }
+.pdp-stock-status.low-stock { color: #B45309; }
+.pdp-stock-status.out-of-stock { color: #6B7280; }
+
+/* Short Description */
+.pdp-short-desc {
+  font-size: 1.02rem;
+  line-height: 1.65;
+  color: #4A4A4A;
+  margin-bottom: 1.75rem;
+}
+
+/* Variant Selector (Jar Sizes) */
+.pdp-variant-section {
+  margin-bottom: 1.75rem;
+}
+
+.pdp-variant-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #111111;
+  margin-bottom: 0.75rem;
+}
+
+.pdp-variant-selected-value {
+  color: #767676;
+  font-weight: 400;
+  text-transform: none;
+}
+
+.pdp-variant-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.pdp-variant-btn {
+  padding: 0.65rem 1.25rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid #D6D2CB;
+  background-color: #FFFFFF;
+  color: #1A1A1A;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pdp-variant-btn:hover {
+  border-color: #111111;
+}
+
+.pdp-variant-btn.selected {
+  background-color: #111111;
+  color: #FFFFFF;
+  border-color: #111111;
+}
+
+.pdp-variant-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+/* Purchase Controls: Quantity & Buttons */
+.pdp-actions-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+/* Quantity Stepper */
+.pdp-quantity-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 120px;
+  height: 52px;
+  border: 1px solid #D6D2CB;
+  border-radius: 8px;
+  background-color: #FFFFFF;
+  padding: 0 0.5rem;
+  flex-shrink: 0;
+}
+
+.pdp-qty-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111111;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.pdp-qty-btn:hover:not(:disabled) {
+  background-color: #F4F3EE;
+}
+
+.pdp-qty-btn:disabled {
+  color: #C0BCB5;
+  cursor: not-allowed;
+}
+
+.pdp-qty-value {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #111111;
+  width: 24px;
+  text-align: center;
+}
+
+/* Primary Add to Cart */
+.pdp-btn-add-to-cart {
+  flex: 1;
+  height: 52px;
+  border-radius: 8px;
+  background-color: #111111;
+  color: #FFFFFF;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.pdp-btn-add-to-cart:hover:not(:disabled) {
+  background-color: #262626;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.pdp-btn-add-to-cart:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.pdp-btn-add-to-cart:disabled {
+  background-color: #E2DFD9;
+  color: #8C857B;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pdp-btn-add-to-cart.success {
+  background-color: #1E3A2F;
+}
+
+/* Wishlist Button */
+.pdp-btn-wishlist {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  border: 1px solid #D6D2CB;
+  background-color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111111;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.pdp-btn-wishlist:hover {
+  border-color: #111111;
+  background-color: #FAF9F5;
+}
+
+.pdp-btn-wishlist.active {
+  color: #A91B24;
+  border-color: #F0D5D7;
+  background-color: #FDF4F5;
+}
+
+/* Secondary Buy Now */
+.pdp-btn-buy-now {
+  width: 100%;
+  height: 48px;
+  border-radius: 8px;
+  background-color: transparent;
+  border: 1.5px solid #111111;
+  color: #111111;
+  font-size: 0.88rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+  margin-bottom: 2rem;
+}
+
+.pdp-btn-buy-now:hover:not(:disabled) {
+  background-color: #111111;
+  color: #FFFFFF;
+}
+
+.pdp-btn-buy-now:disabled {
+  border-color: #D6D2CB;
+  color: #8C857B;
+  cursor: not-allowed;
+}
+
+/* Trust Indicators */
+.pdp-trust-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  padding: 1.75rem 0;
+  border-top: 1px solid #EAE8E2;
+}
+
+.pdp-trust-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.pdp-trust-icon {
+  color: #111111;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.pdp-trust-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111111;
+  margin-bottom: 0.15rem;
+}
+
+.pdp-trust-desc {
+  font-size: 0.8rem;
+  color: #767676;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Toast Notification for Wishlist/Cart */
+.pdp-toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background-color: #111111;
+  color: #FFFFFF;
+  padding: 0.9rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  z-index: 1000;
+}
+
+/* ==========================================================================
+   BELOW-THE-FOLD SECTIONS (ACCORDION / SPECS)
+   ========================================================================== */
+.pdp-details-section {
+  border-top: 1px solid #EAE8E2;
+  padding-top: 5rem;
+  margin-bottom: 5rem;
+}
+
+.pdp-section-eyebrow {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #8C857B;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.pdp-section-heading {
+  font-size: clamp(1.8rem, 2.5vw, 2.2rem);
+  font-weight: 500;
+  color: #111111;
+  letter-spacing: -0.02em;
+  text-align: center;
+  margin-bottom: 3.5rem;
+}
+
+.pdp-accordion-wrapper {
+  max-width: 840px;
+  margin: 0 auto;
+}
+
+.pdp-accordion-item {
+  border-bottom: 1px solid #EAE8E2;
+}
+
+.pdp-accordion-header {
+  width: 100%;
+  padding: 1.5rem 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pdp-accordion-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #111111;
+  letter-spacing: -0.01em;
+}
+
+.pdp-accordion-icon {
+  color: #111111;
+  transition: transform 0.3s ease;
+}
+
+.pdp-accordion-item.is-open .pdp-accordion-icon {
+  transform: rotate(45deg);
+}
+
+.pdp-accordion-content {
+  padding-bottom: 1.75rem;
+  font-size: 0.98rem;
+  line-height: 1.7;
+  color: #4A4A4A;
+}
+
+/* Pills list (e.g. ingredients / benefits) */
+.pdp-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.pdp-tag-pill {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #111111;
+  background-color: #F4F3EE;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid #EAE8E2;
+}
+
+/* ==========================================================================
+   RELATED PRODUCTS CAROUSEL / GRID
+   ========================================================================== */
+.pdp-related-section {
+  border-top: 1px solid #EAE8E2;
+  padding-top: 5rem;
+  margin-bottom: 4rem;
+}
+
+.pdp-related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: 2.5rem;
+}
+
+/* Minimalist Related Card */
+.pdp-related-card {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+}
+
+.pdp-related-card:hover .pdp-related-img {
+  transform: scale(1.05);
+}
+
+.pdp-related-img-box {
+  background-color: #F4F3EE;
+  border-radius: 8px;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.pdp-related-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pdp-related-category {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8C857B;
+  margin-bottom: 0.25rem;
+}
+
+.pdp-related-name {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: #111111;
+  margin-bottom: 0.4rem;
+}
+
+.pdp-related-price {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111111;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   FULLSCREEN IMAGE LIGHTBOX MODAL
+   ========================================================================== */
+.pdp-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(250, 250, 248, 0.96);
+  backdrop-filter: blur(16px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.pdp-lightbox-close {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: #FFFFFF;
+  border: 1px solid #EAE8E2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111111;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease;
+}
+
+.pdp-lightbox-close:hover {
+  transform: scale(1.1);
+}
+
+.pdp-lightbox-content {
+  max-width: 900px;
+  max-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdp-lightbox-img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+/* ==========================================================================
+   MOBILE STICKY ADD TO CART BAR
+   ========================================================================== */
+.pdp-mobile-sticky-bar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid #EAE8E2;
+  padding: 0.75rem 1.25rem;
+  z-index: 99;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.pdp-sticky-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pdp-sticky-product {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.pdp-sticky-thumb {
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
+  background-color: #F4F3EE;
+  object-fit: contain;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.pdp-sticky-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pdp-sticky-title {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pdp-sticky-price {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: #111111;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+.pdp-sticky-btn {
+  height: 42px;
+  padding: 0 1.25rem;
+  border-radius: 6px;
+  background-color: #111111;
+  color: #FFFFFF;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   LOADING SKELETON & EMPTY STATES
+   ========================================================================== */
+.pdp-skeleton-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+}
+
+.pdp-skeleton-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+}
+
+.pdp-skeleton-box {
+  background: linear-gradient(90deg, #F0EFEA 25%, #F7F6F2 50%, #F0EFEA 75%);
+  background-size: 200% 100%;
+  animation: pdpSkeletonShimmer 1.8s infinite;
+  border-radius: 8px;
+}
+
+@keyframes pdpSkeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.pdp-empty-state {
+  text-align: center;
+  padding: 6rem 2rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.pdp-empty-state h2 {
+  font-size: 1.8rem;
+  font-weight: 500;
+  color: #111111;
+  margin-bottom: 1rem;
+}
+
+.pdp-empty-state p {
+  color: #767676;
+  margin-bottom: 2rem;
+}
+
+/* ==========================================================================
+   RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+
+/* Tablet (max-width: 1024px) */
+@media (max-width: 1024px) {
+  .pdp-main-grid {
+    gap: 3rem;
+  }
+}
+
+/* Mobile & Small Tablets (max-width: 820px) */
+@media (max-width: 820px) {
+  .pdp-container {
+    padding: 0 1.25rem;
+  }
+
+  .pdp-main-grid {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    margin-bottom: 4rem;
+  }
+
+  .pdp-main-image-wrapper {
+    aspect-ratio: 1 / 1;
+  }
+
+  .pdp-title {
+    font-size: 1.85rem;
+  }
+
+  .pdp-mobile-sticky-bar {
+    display: block;
+  }
+
+  .pdp-trust-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pdp-skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .pdp-actions-row {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .pdp-btn-add-to-cart {
+    width: 100%;
+    order: 3;
+    height: 48px;
+  }
+  .pdp-quantity-stepper {
+    flex: 1;
+    height: 48px;
+  }
+  .pdp-btn-wishlist {
+    height: 48px;
+    width: 48px;
+  }
+  .pdp-container {
+    padding: 0 1rem;
+  }
+  .pdp-title {
+    font-size: 1.6rem;
+  }
+  .pdp-mobile-sticky-bar {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+  .pdp-page {
+    padding-bottom: 7.5rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .pdp-container {
+    padding: 0 0.75rem;
+  }
+  .pdp-title {
+    font-size: 1.4rem;
+  }
+}

@@ -1,29 +1,125 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { Ticket, X, Check, Loader2 } from 'lucide-react';
+import axios from 'axios';
+import { formatCurrency } from '../utils/currency';
+
+const FREE_SHIPPING_THRESHOLD = 1000;
+const STANDARD_SHIPPING_FEE = 100.00;
 
 const Checkout = () => {
-  const { cart, cartTotal, clearCart } = useCart();
+  const { cart, cartLoading, cartTotal, clearCart } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [formData, setFormData] = useState({
     fullName: '', email: '', phone: '', address: '', city: '', state: '', pincode: '', paymentMethod: 'cod'
   });
 
-  const deliveryCharge = cartTotal > 0 ? 5.00 : 0;
-  const grandTotal = cartTotal + deliveryCharge;
+  // Coupon State
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [validCoupon, setValidCoupon] = useState(() => {
+    if (location.state?.coupon) return location.state.coupon;
+    try {
+      const saved = sessionStorage.getItem('frutlle_coupon');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [couponError, setCouponError] = useState('');
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+
+  const subtotalAfterDiscount = cartTotal - (validCoupon ? validCoupon.discount_applied : 0);
+  const deliveryCharge = subtotalAfterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_SHIPPING_FEE;
+  const taxPrice = Number((subtotalAfterDiscount * 0.15).toFixed(2));
+  const grandTotal = Number((subtotalAfterDiscount + taxPrice + deliveryCharge).toFixed(2));
 
   const handleChange = (e) => {
     setFormData({...formData, [e.target.name]: e.target.value});
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Simulate order placement
-    clearCart();
-    navigate('/order-confirmation', { state: { orderId: `FRUTLLE-${Math.floor(Math.random() * 100000)}`, ...formData }});
+  const handleApplyCoupon = async () => {
+    if (!couponCodeInput.trim()) return;
+    setValidatingCoupon(true);
+    setCouponError('');
+    
+    try {
+      const { data } = await axios.post('/api/coupons/validate', {
+        code: couponCodeInput,
+        subtotal: cartTotal
+      }, { withCredentials: true });
+      
+      setValidCoupon(data);
+      setCouponCodeInput('');
+    } catch (error) {
+      setCouponError(error.response?.data?.message || 'Invalid coupon code');
+      setValidCoupon(null);
+    } finally {
+      setValidatingCoupon(false);
+    }
   };
+
+  const removeCoupon = () => {
+    setValidCoupon(null);
+    setCouponError('');
+  };
+
+  const hasOutOfStock = cart.some(item => item.countInStock !== undefined && Number(item.countInStock) <= 0);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (hasOutOfStock) {
+      alert('One or more items in your cart are currently Out of Stock. Please remove them before placing an order.');
+      navigate('/cart');
+      return;
+    }
+    try {
+      const orderItems = cart.map(item => ({
+        product: item.id,
+        name: item.name,
+        qty: item.quantity,
+        image: item.image || '/Frutlle%20Logo.png',
+        price: item.price
+      }));
+
+      const orderData = {
+        orderItems,
+        shippingAddress: {
+          address: formData.address,
+          city: formData.city,
+          postalCode: formData.pincode,
+          country: formData.state
+        },
+        paymentMethod: formData.paymentMethod,
+        itemsPrice: cartTotal,
+        taxPrice: taxPrice,
+        shippingPrice: deliveryCharge,
+        totalPrice: grandTotal,
+        ...(validCoupon && { couponCode: validCoupon.code })
+      };
+
+      const { data } = await axios.post('/api/orders', orderData, { withCredentials: true });
+      
+      clearCart();
+      sessionStorage.removeItem('frutlle_coupon');
+      navigate('/order-confirmation', { state: { orderId: data._id, ...formData }});
+    } catch (error) {
+      console.error("Order creation failed:", error);
+      alert(error.response?.data?.message || 'Order failed to process. Please try again.');
+    }
+  };
+
+  if (cartLoading) {
+    return (
+      <div className="container section text-center" style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <Loader2 size={36} className="spin" style={{ color: 'var(--color-primary)', marginBottom: '1rem' }} />
+        <p style={{ color: 'var(--color-text)' }}>Securing your cart details...</p>
+      </div>
+    );
+  }
 
   if (cart.length === 0) {
     navigate('/cart');
@@ -37,7 +133,7 @@ const Checkout = () => {
     >
       <h1 className="heading-lg" style={{ marginBottom: 'var(--space-2xl)' }}>Checkout</h1>
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-3xl)' }}>
+      <div className="checkout-grid">
         
         {/* Checkout Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
@@ -48,7 +144,7 @@ const Checkout = () => {
             <input required type="text" name="fullName" className="form-input" onChange={handleChange} />
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+          <div className="checkout-row-2">
             <div className="form-group">
               <label className="form-label">Email</label>
               <input required type="email" name="email" className="form-input" onChange={handleChange} />
@@ -64,7 +160,7 @@ const Checkout = () => {
             <input required type="text" name="address" className="form-input" onChange={handleChange} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-md)' }}>
+          <div className="checkout-row-3">
             <div className="form-group">
               <label className="form-label">City</label>
               <input required type="text" name="city" className="form-input" onChange={handleChange} />
@@ -81,7 +177,7 @@ const Checkout = () => {
 
           <h2 className="heading-sm" style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginTop: 'var(--space-lg)' }}>Payment Method</h2>
           
-          <div style={{ display: 'flex', gap: 'var(--space-lg)', marginBottom: 'var(--space-xl)' }}>
+          <div className="checkout-payment-methods">
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
               <input type="radio" name="paymentMethod" value="cod" checked={formData.paymentMethod === 'cod'} onChange={handleChange} />
               Cash on Delivery
@@ -92,36 +188,100 @@ const Checkout = () => {
             </label>
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', fontSize: '1.1rem' }}>
-            Place Order (${grandTotal.toFixed(2)})
+          <button 
+            type="submit" 
+            disabled={hasOutOfStock}
+            className="btn btn-primary" 
+            style={{ width: '100%', fontSize: '1.05rem', padding: '1rem', ...(hasOutOfStock ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+          >
+            {hasOutOfStock ? 'Cannot Place Order (Items Out of Stock)' : `Place Order (${formatCurrency(grandTotal)})`}
           </button>
         </form>
 
         {/* Order Summary */}
-        <div style={{ background: 'var(--color-white)', padding: 'var(--space-2xl)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)', height: 'fit-content' }}>
-          <h2 className="heading-sm" style={{ marginBottom: 'var(--space-lg)', borderBottom: '1px solid var(--color-border)', paddingBottom: '1rem' }}>Order Summary</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
-            {cart.map(item => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                <span style={{ color: 'var(--color-text)' }}>{item.name} x {item.quantity}</span>
-                <span style={{ fontWeight: '500' }}>${(item.price * item.quantity).toFixed(2)}</span>
+          {/* Discount Code Section */}
+          <div style={{ background: 'var(--color-white)', padding: '1.5rem', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Ticket size={18} /> Apply Discount Code
+            </h3>
+            
+            {validCoupon ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', padding: '0.75rem 1rem', borderRadius: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#065f46' }}>
+                  <Check size={16} />
+                  <span style={{ fontWeight: 600 }}>{validCoupon.code}</span>
+                  <span style={{ fontSize: '0.875rem', opacity: 0.8 }}>(-{formatCurrency(validCoupon.discount_applied)})</span>
+                </div>
+                <button onClick={removeCoupon} style={{ background: 'none', border: 'none', color: '#059669', cursor: 'pointer', padding: '0.25rem' }}>
+                  <X size={16} />
+                </button>
               </div>
-            ))}
+            ) : (
+              <div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Enter coupon code" 
+                    value={couponCodeInput}
+                    onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                    style={{ flex: '1 1 180px', minWidth: '0', padding: '0.75rem 1rem', border: '1px solid var(--color-border)', borderRadius: '0.5rem', fontSize: '0.95rem' }}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleApplyCoupon())}
+                  />
+                  <button 
+                    onClick={handleApplyCoupon}
+                    disabled={!couponCodeInput.trim() || validatingCoupon}
+                    className="btn btn-secondary"
+                    style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem', minWidth: '90px' }}
+                  >
+                    {validatingCoupon ? <Loader2 size={18} className="spin" /> : 'Apply'}
+                  </button>
+                </div>
+                {couponError && <p style={{ color: 'var(--frutlle-red)', fontSize: '0.875rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><X size={14} /> {couponError}</p>}
+              </div>
+            )}
           </div>
-          
-          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
-              <span style={{ color: 'var(--color-text)' }}>Subtotal</span>
-              <span>${cartTotal.toFixed(2)}</span>
+
+          <div className="checkout-summary-box">
+            <h2 className="heading-sm" style={{ marginBottom: 'var(--space-lg)', borderBottom: '1px solid var(--color-border)', paddingBottom: '1rem' }}>Order Summary</h2>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
+              {cart.map(item => (
+                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                  <span style={{ color: 'var(--color-text)' }}>{item.name} x {item.quantity}</span>
+                  <span style={{ fontWeight: '500' }}>{formatCurrency(item.price * item.quantity)}</span>
+                </div>
+              ))}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
-              <span style={{ color: 'var(--color-text)' }}>Delivery</span>
-              <span>${deliveryCharge.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)', fontSize: '1.25rem', fontWeight: '600' }}>
-              <span>Total</span>
-              <span style={{ color: 'var(--color-primary)' }}>${grandTotal.toFixed(2)}</span>
+            
+            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ color: 'var(--color-text)' }}>Subtotal</span>
+                <span>{formatCurrency(cartTotal)}</span>
+              </div>
+              
+              {validCoupon && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: '#059669', fontWeight: 500 }}>
+                  <span>Discount ({validCoupon.code})</span>
+                  <span>-{formatCurrency(validCoupon.discount_applied)}</span>
+                </div>
+              )}
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ color: 'var(--color-text)' }}>Tax (15%)</span>
+                <span>{formatCurrency(taxPrice)}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
+                <span style={{ color: 'var(--color-text)' }}>Delivery</span>
+                <span>{deliveryCharge === 0 ? 'Complimentary' : formatCurrency(deliveryCharge)}</span>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)', fontSize: '1.25rem', fontWeight: '600' }}>
+                <span>Total</span>
+                <span style={{ color: 'var(--color-primary)' }}>{formatCurrency(grandTotal)}</span>
+              </div>
             </div>
           </div>
         </div>

@@ -73,7 +73,7 @@
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
   gap: var(--space-2xl);
 }
 
@@ -84,7 +84,7 @@
 
 .values-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: var(--space-2xl);
   text-align: center;
 }
@@ -102,14 +102,35 @@
 }
 
 @media (max-width: 768px) {
+  .section-header {
+    margin-bottom: var(--space-2xl);
+  }
+  .product-grid {
+    gap: var(--space-xl);
+  }
   .hero-bg::after {
     background: linear-gradient(to bottom, rgba(246, 240, 223, 0.95) 0%, rgba(246, 240, 223, 0.8) 50%, rgba(246, 240, 223, 0.4) 100%);
   }
   .hero-text-box {
     text-align: center;
     margin: 0 auto;
+    padding: var(--space-xl) 0;
   }
   .hero-actions {
     justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .hero-actions .btn {
+    width: 100%;
+  }
+  .value-card {
+    padding: var(--space-md) var(--space-sm);
   }
 }

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import heroImg from '../assets/images/jam_hero.jpg';
+import './About.css';
 
 const About = () => {
   return (
@@ -7,83 +7,150 @@ const About = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+      className="about-page"
     >
-      <section className="container section">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-4xl)', alignItems: 'center' }}>
-          
-          <motion.div
-            initial={{ x: -50, opacity: 0 }}
-            whileInView={{ x: 0, opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+      {/* 1. HERO SECTION */}
+      <section className="about-hero">
+        <div className="about-hero-container">
+          <motion.div 
+            className="about-hero-content"
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
           >
-            <h1 className="heading-xl" style={{ marginBottom: 'var(--space-lg)' }}>Our Story</h1>
-            <p style={{ fontSize: '1.2rem', marginBottom: 'var(--space-md)' }}>
-              It started in 1995 with a single copper pot and a basket of freshly picked strawberries.
+            <span className="about-eyebrow">OUR STORY</span>
+            <h1 className="about-hero-title">
+              Sweetness, Just the Way Nature Made It.
+            </h1>
+            <p className="about-hero-subtitle">
+              At FRUTLLE, we believe that delicious food doesn’t need added sugar to taste wonderfully sweet.
             </p>
-            <p style={{ color: 'var(--color-text)', marginBottom: 'var(--space-md)' }}>
-              At FRUTLLE, we believe that the best flavors come from the simplest ingredients. That's why we partner exclusively with local organic farms to source fruits at their absolute peak of ripeness. 
-            </p>
-            <p style={{ color: 'var(--color-text)', marginBottom: 'var(--space-lg)' }}>
-              We never use artificial preservatives, colors, or high-fructose corn syrup. Just pure fruit, natural cane sugar, and a touch of lemon juice to naturally set our preserves. Every jar is handcrafted in small batches to ensure the highest quality and perfect taste.
-            </p>
-            
-            <div style={{ display: 'flex', gap: 'var(--space-2xl)', marginTop: 'var(--space-2xl)' }}>
-              <div>
-                <h3 className="heading-lg" style={{ color: 'var(--color-primary)', marginBottom: '0.25rem' }}>25+</h3>
-                <p style={{ textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.1em' }}>Years of Craft</p>
-              </div>
-              <div>
-                <h3 className="heading-lg" style={{ color: 'var(--color-primary)', marginBottom: '0.25rem' }}>100%</h3>
-                <p style={{ textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.1em' }}>Organic</p>
-              </div>
-            </div>
           </motion.div>
-
-          <motion.div
+          <motion.div 
+            className="about-hero-image-wrapper"
             initial={{ x: 50, opacity: 0 }}
-            whileInView={{ x: 0, opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: 'var(--shadow-lg)' }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
           >
-            <img src={heroImg} alt="Making jam" style={{ width: '100%', height: '100%', objectFit: 'cover', minHeight: '500px' }} />
+            <img 
+              src="/frutlle_about_hero_1791191399029.jpg" 
+              alt="Premium FRUTLLE fruit spreads and fresh ingredients" 
+              className="about-hero-image"
+            />
           </motion.div>
-          
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--color-secondary)', padding: 'var(--space-4xl) 0' }}>
-        <div className="container text-center">
-          <h2 className="heading-lg" style={{ marginBottom: 'var(--space-3xl)' }}>Our Process</h2>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-2xl)' }}>
-            <motion.div initial={{ y: 30, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }}>
-              <div style={{ width: '80px', height: '80px', backgroundColor: 'var(--color-white)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-lg)', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>1</div>
-              <h3>Harvest</h3>
-              <p style={{ color: 'var(--color-text)' }}>Hand-picked at peak ripeness from local farms.</p>
+      {/* 2. BRAND STORY SECTION */}
+      <section className="about-story">
+        <div className="about-container">
+          <div className="about-story-grid">
+            <motion.div 
+              className="about-story-text"
+              initial={{ y: 40, opacity: 0 }}
+              whileInView={{ y: 0, opacity: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <h2 className="about-section-title">Where Our Story Began</h2>
+              <div className="about-story-paragraphs">
+                <p>
+                  Our journey began with a simple idea: to create fruit spreads and jams that celebrate the natural sweetness of fruit — without adding refined or artificial sugars.
+                </p>
+                <p>
+                  We wanted to bring something different to the table: honest ingredients, vibrant fruit flavours, and sweetness that comes naturally.
+                </p>
+              </div>
             </motion.div>
-            
-            <motion.div initial={{ y: 30, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.2 }}>
-              <div style={{ width: '80px', height: '80px', backgroundColor: 'var(--color-white)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-lg)', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>2</div>
-              <h3>Preparation</h3>
-              <p style={{ color: 'var(--color-text)' }}>Washed and cut by hand to ensure perfect texture.</p>
-            </motion.div>
-
-            <motion.div initial={{ y: 30, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.3 }}>
-              <div style={{ width: '80px', height: '80px', backgroundColor: 'var(--color-white)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-lg)', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>3</div>
-              <h3>Slow Cooking</h3>
-              <p style={{ color: 'var(--color-text)' }}>Simmered in copper pots in small batches.</p>
-            </motion.div>
-            
-            <motion.div initial={{ y: 30, opacity: 0 }} whileInView={{ y: 0, opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.4 }}>
-              <div style={{ width: '80px', height: '80px', backgroundColor: 'var(--color-white)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto var(--space-lg)', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>4</div>
-              <h3>Sealing</h3>
-              <p style={{ color: 'var(--color-text)' }}>Jarred hot and sealed to lock in the freshness.</p>
+            <motion.div 
+              className="about-story-image-wrapper"
+              initial={{ scale: 0.95, opacity: 0 }}
+              whileInView={{ scale: 1, opacity: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <img 
+                src="/frutlle_story_spread_1791191422865.jpg" 
+                alt="Vibrant fruit jam spread on artisanal bread" 
+                className="about-story-image"
+              />
             </motion.div>
           </div>
         </div>
+      </section>
+
+      {/* 3. THE FRUTLLE PHILOSOPHY */}
+      <section className="about-philosophy">
+        <motion.div 
+          className="about-container about-philosophy-content"
+          initial={{ y: 40, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <span className="about-decorative-line"></span>
+          <h2 className="about-philosophy-title">Let the Fruit Speak.</h2>
+          <p className="about-philosophy-text">
+            Every FRUTLLE product is thoughtfully crafted to let the true character of the fruit shine through. Instead of relying on added sugars, we use carefully selected natural sweeteners to create a delicious balance of flavour and sweetness.
+          </p>
+        </motion.div>
+      </section>
+
+      {/* 4. NATURALLY SIMPLE */}
+      <section className="about-simple">
+        <div className="about-container">
+          <div className="about-simple-grid">
+            <motion.div 
+              className="about-simple-image-wrapper"
+              initial={{ x: -40, opacity: 0 }}
+              whileInView={{ x: 0, opacity: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <img 
+                src="/frutlle_raw_fruit_1791191445385.jpg" 
+                alt="Fresh raw berries and peaches" 
+                className="about-simple-image"
+              />
+            </motion.div>
+            <motion.div 
+              className="about-simple-text"
+              initial={{ x: 40, opacity: 0 }}
+              whileInView={{ x: 0, opacity: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <h2 className="about-simple-heading">
+                Real Fruit.<br />
+                Carefully Chosen Ingredients.<br />
+                No Added Sugar.
+              </h2>
+              <p className="about-simple-description">
+                We believe in keeping things uncomplicated: real fruit, carefully chosen ingredients, and no added sugar.
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. CLOSING BRAND STATEMENT */}
+      <section className="about-closing">
+        <motion.div 
+          className="about-closing-content"
+          initial={{ y: 30, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <h2 className="about-closing-statement">
+            “Because when nature already gives us something this delicious, why add more?”
+          </h2>
+          <div className="about-closing-brand">
+            <h3 className="about-closing-logo">FRUTLLE</h3>
+            <span className="about-closing-tagline">Fruitfully Natural</span>
+          </div>
+        </motion.div>
       </section>
     </motion.div>
   );

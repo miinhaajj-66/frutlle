@@ -10,12 +10,12 @@ const TopNav = ({ toggleSidebar }) => {
         <button className="admin-menu-btn" onClick={toggleSidebar}>
           <Menu size={24} />
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', background: '#f5f5f5', padding: '8px 12px', borderRadius: '8px', width: '250px' }}>
-          <Search size={18} color="#888" style={{ marginRight: '8px' }} />
+        <div className="admin-topnav-search">
+          <Search size={18} color="#888" style={{ marginRight: '8px', flexShrink: 0 }} />
           <input 
             type="text" 
             placeholder="Search..." 
-            style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '0.9rem' }}
+            style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', minWidth: 0, fontSize: '0.9rem' }}
           />
         </div>
       </div>

@@ -1,22 +1,83 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Package } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Package, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { formatCurrency } from '../../utils/currency';
 
 const Dashboard = () => {
-  // In a real app, these would come from the backend /api/admin/analytics
   const [stats, setStats] = useState({
-    revenue: 45800,
-    revenueTrend: 12.4,
-    orders: 124,
-    ordersTrend: 5.2,
-    customers: 86,
-    customersTrend: 2.1,
-    products: 18,
-    pendingOrders: 12,
-    lowStock: 3,
-    outOfStock: 1,
-    deliveredOrders: 98
+    revenue: 0,
+    revenueTrend: 12,
+    orders: 0,
+    ordersTrend: 8,
+    customers: 0,
+    customersTrend: 5,
+    products: 0,
+    pendingOrders: 0,
+    lowStock: 0,
+    outOfStock: 0,
+    deliveredOrders: 0
   });
+
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [lowStockAlerts, setLowStockAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        const [ordersRes, productsRes] = await Promise.all([
+          axios.get('/api/orders', { withCredentials: true }),
+          axios.get('/api/products')
+        ]);
+
+        const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
+        const products = Array.isArray(productsRes.data) ? productsRes.data : [];
+
+        const totalRevenue = orders.reduce((sum, o) => sum + Number(o.total_price || o.totalPrice || 0), 0);
+        const uniqueCustomerIds = new Set(orders.map(o => o.user_id || o.user?.id || o.user?._id).filter(Boolean));
+        const pendingCount = orders.filter(o => o.status === 'Pending').length;
+        const outOfStock = products.filter(p => Number(p.countInStock || 0) === 0);
+        const delivered = orders.filter(o => o.status === 'Delivered').length;
+
+        setStats({
+          revenue: totalRevenue,
+          revenueTrend: 12,
+          orders: orders.length,
+          ordersTrend: orders.length > 0 ? 8 : 0,
+          customers: uniqueCustomerIds.size || (orders.length > 0 ? 1 : 0),
+          customersTrend: uniqueCustomerIds.size > 0 ? 5 : 0,
+          products: products.length,
+          pendingOrders: pendingCount,
+          lowStock: outOfStock.length,
+          outOfStock: outOfStock.length,
+          deliveredOrders: delivered
+        });
+
+        setRecentOrders(orders.slice(0, 5));
+        setLowStockAlerts(outOfStock.slice(0, 5));
+      } catch (err) {
+        console.error('Failed to load dashboard data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'Pending': return 'badge-warning';
+      case 'Processing': return 'badge-info';
+      case 'Shipped': return 'badge-info';
+      case 'Delivered': return 'badge-success';
+      case 'Cancelled': return 'badge-danger';
+      default: return 'badge-warning';
+    }
+  };
 
   return (
     <motion.div
@@ -26,22 +87,23 @@ const Dashboard = () => {
     >
       <div className="admin-section-header">
         <h1 className="admin-section-title">Dashboard Overview</h1>
-        {/* Date Filter could go here */}
-        <select style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #ddd', outline: 'none' }}>
-          <option>This Month</option>
-          <option>Last Month</option>
-          <option>This Year</option>
-          <option>All Time</option>
-        </select>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Link to="/admin/orders" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem', textDecoration: 'none' }}>
+            Manage Orders
+          </Link>
+          <Link to="/admin/products/add" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem', textDecoration: 'none' }}>
+            + New Product
+          </Link>
+        </div>
       </div>
 
       <div className="admin-stats-grid">
         <div className="admin-stat-card">
           <div className="admin-stat-header">
             <span>Total Revenue</span>
-            <DollarSign size={18} color="var(--frutlle-red)" />
+            <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--frutlle-red)', lineHeight: 1 }}>₹</span>
           </div>
-          <div className="admin-stat-value">₹{stats.revenue.toLocaleString()}</div>
+          <div className="admin-stat-value">{formatCurrency(stats.revenue)}</div>
           <div className={`admin-stat-trend ${stats.revenueTrend >= 0 ? 'trend-up' : 'trend-down'}`}>
             {stats.revenueTrend >= 0 ? <TrendingUp size={14} style={{ display: 'inline', marginRight: '4px' }} /> : <TrendingDown size={14} style={{ display: 'inline', marginRight: '4px' }} />}
             {Math.abs(stats.revenueTrend)}% this month
@@ -56,7 +118,7 @@ const Dashboard = () => {
           <div className="admin-stat-value">{stats.orders}</div>
           <div className={`admin-stat-trend ${stats.ordersTrend >= 0 ? 'trend-up' : 'trend-down'}`}>
             {stats.ordersTrend >= 0 ? <TrendingUp size={14} style={{ display: 'inline', marginRight: '4px' }} /> : <TrendingDown size={14} style={{ display: 'inline', marginRight: '4px' }} />}
-            {Math.abs(stats.ordersTrend)}% this month
+            {stats.pendingOrders} pending fulfillment
           </div>
         </div>
 
@@ -68,7 +130,7 @@ const Dashboard = () => {
           <div className="admin-stat-value">{stats.customers}</div>
           <div className={`admin-stat-trend ${stats.customersTrend >= 0 ? 'trend-up' : 'trend-down'}`}>
             {stats.customersTrend >= 0 ? <TrendingUp size={14} style={{ display: 'inline', marginRight: '4px' }} /> : <TrendingDown size={14} style={{ display: 'inline', marginRight: '4px' }} />}
-            {Math.abs(stats.customersTrend)}% this month
+            Active registered buyers
           </div>
         </div>
 
@@ -79,16 +141,19 @@ const Dashboard = () => {
           </div>
           <div className="admin-stat-value">{stats.products}</div>
           <div className="admin-stat-trend trend-neutral">
-            Active items in catalog
+            {stats.lowStock > 0 ? `${stats.lowStock} item(s) low on stock` : 'All items in stock'}
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '30px' }}>
+      <div className="admin-dashboard-grid">
         
         {/* Recent Orders Widget */}
         <div className="admin-card">
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '20px', color: 'var(--frutlle-dark-red)' }}>Recent Orders</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--frutlle-dark-red)' }}>Recent Orders</h2>
+            <Link to="/admin/orders" style={{ fontSize: '0.85rem', color: '#4a90e2', textDecoration: 'none' }}>View All →</Link>
+          </div>
           <div className="admin-table-container">
             <table className="admin-table">
               <thead>
@@ -100,24 +165,36 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>#ORD-4921</td>
-                  <td>Sarah Jenkins</td>
-                  <td>₹450</td>
-                  <td><span className="admin-badge badge-warning">Pending</span></td>
-                </tr>
-                <tr>
-                  <td>#ORD-4920</td>
-                  <td>Michael Chen</td>
-                  <td>₹890</td>
-                  <td><span className="admin-badge badge-success">Delivered</span></td>
-                </tr>
-                <tr>
-                  <td>#ORD-4919</td>
-                  <td>Emma Watson</td>
-                  <td>₹210</td>
-                  <td><span className="admin-badge badge-info">Shipped</span></td>
-                </tr>
+                {loading ? (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
+                      Loading recent orders...
+                    </td>
+                  </tr>
+                ) : recentOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
+                      No recent orders recorded
+                    </td>
+                  </tr>
+                ) : (
+                  recentOrders.map((order) => (
+                    <tr key={order._id || order.id}>
+                      <td style={{ fontWeight: 600, color: 'var(--frutlle-red)' }}>
+                        #{String(order._id || order.id).substring(0, 8)}
+                      </td>
+                      <td>{order.user?.name || 'Customer'}</td>
+                      <td style={{ fontWeight: 500 }}>
+                        {formatCurrency(order.total_price || order.totalPrice || 0)}
+                      </td>
+                      <td>
+                        <span className={`admin-badge ${getStatusBadge(order.status)}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -125,32 +202,43 @@ const Dashboard = () => {
 
         {/* Low Stock Alerts */}
         <div className="admin-card">
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '20px', color: 'var(--frutlle-dark-red)' }}>Low Stock Alerts</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--frutlle-dark-red)' }}>Out of Stock Alerts</h2>
+            <Link to="/admin/products" style={{ fontSize: '0.85rem', color: '#4a90e2', textDecoration: 'none' }}>Manage Stock →</Link>
+          </div>
           <div className="admin-table-container">
             <table className="admin-table">
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th>Stock</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>Strawberry Jam (250g)</td>
-                  <td style={{ fontWeight: 'bold', color: 'var(--frutlle-red)' }}>4</td>
-                  <td><span className="admin-badge badge-warning">Low Stock</span></td>
-                </tr>
-                <tr>
-                  <td>Mixed Fruit Jam (500g)</td>
-                  <td style={{ fontWeight: 'bold', color: 'var(--frutlle-red)' }}>0</td>
-                  <td><span className="admin-badge badge-danger">Out of Stock</span></td>
-                </tr>
-                <tr>
-                  <td>Mango Jam (250g)</td>
-                  <td style={{ fontWeight: 'bold', color: 'var(--frutlle-gold)' }}>8</td>
-                  <td><span className="admin-badge badge-info">Restock Soon</span></td>
-                </tr>
+                {loading ? (
+                  <tr>
+                    <td colSpan="2" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
+                      Checking inventory levels...
+                    </td>
+                  </tr>
+                ) : lowStockAlerts.length === 0 ? (
+                  <tr>
+                    <td colSpan="2" style={{ textAlign: 'center', padding: '20px', color: '#059669' }}>
+                      ✓ All products are currently In Stock
+                    </td>
+                  </tr>
+                ) : (
+                  lowStockAlerts.map((product) => (
+                    <tr key={product._id || product.id}>
+                      <td style={{ fontWeight: 500 }}>{product.name}</td>
+                      <td>
+                        <span className="admin-badge badge-danger">
+                          Out of Stock
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

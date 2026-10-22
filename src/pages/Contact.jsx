@@ -1,6 +1,7 @@
-import { motion } from 'framer-motion';
-import { Mail, Phone, MapPin, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Phone, MapPin, Clock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import axios from 'axios';
 
 const Contact = () => {
   const [formState, setFormState] = useState({
@@ -10,19 +11,66 @@ const Contact = () => {
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
+  const [lastSubmittedName, setLastSubmittedName] = useState('');
+  const [lastSubmittedEmail, setLastSubmittedEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleChange = (e) => {
     setFormState({ ...formState, [e.target.name]: e.target.value });
+    if (errorMessage) setErrorMessage('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
-    // In a real app, you would handle API submission here
-    setTimeout(() => {
-      setSubmitted(false);
+    if (loading) return;
+
+    // Validate fields
+    if (!formState.name.trim() || formState.name.trim().length < 2) {
+      setErrorMessage('Please enter your full name (at least 2 characters).');
+      return;
+    }
+    const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    if (!formState.email.trim() || !emailRegex.test(formState.email.trim())) {
+      setErrorMessage('Please enter a valid email address.');
+      return;
+    }
+    if (!formState.subject.trim() || formState.subject.trim().length < 2) {
+      setErrorMessage('Please enter a message subject (at least 2 characters).');
+      return;
+    }
+    if (!formState.message.trim() || formState.message.trim().length < 5) {
+      setErrorMessage('Please write a message with at least 5 characters.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage('');
+
+    try {
+      await axios.post('/api/messages', {
+        name: formState.name.trim(),
+        email: formState.email.trim(),
+        subject: formState.subject.trim(),
+        message: formState.message.trim()
+      });
+
+      setLastSubmittedName(formState.name.trim());
+      setLastSubmittedEmail(formState.email.trim());
+      setSubmitted(true);
       setFormState({ name: '', email: '', subject: '', message: '' });
-    }, 4000);
+    } catch (err) {
+      console.error('Contact form submission error:', err);
+      const msg = err.response?.data?.message || 'We could not send your message right now. Please try again or email us directly.';
+      setErrorMessage(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetForm = () => {
+    setSubmitted(false);
+    setErrorMessage('');
   };
 
   return (
@@ -33,7 +81,7 @@ const Contact = () => {
       transition={{ duration: 0.5 }}
       className="container section"
     >
-      <div className="text-center" style={{ marginBottom: 'var(--space-4xl)' }}>
+      <div className="text-center" style={{ marginBottom: 'clamp(var(--space-xl), 5vw, var(--space-4xl))' }}>
         <motion.h1 
           className="heading-lg"
           initial={{ opacity: 0, y: -20 }}
@@ -52,7 +100,7 @@ const Contact = () => {
         </motion.p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-4xl)' }}>
+      <div className="contact-grid">
         
         {/* Contact Info */}
         <motion.div
@@ -114,42 +162,185 @@ const Contact = () => {
         >
           <h2 className="heading-sm" style={{ marginBottom: 'var(--space-xl)' }}>Send a Message</h2>
           
-          {submitted ? (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              style={{ padding: '2rem', textAlign: 'center', backgroundColor: 'var(--color-secondary)', borderRadius: 'var(--radius-md)', color: 'var(--color-primary-dark)' }}
-            >
-              <h3 style={{ marginBottom: '0.5rem' }}>Thank You!</h3>
-              <p>Your message has been received. We'll get back to you shortly.</p>
-            </motion.div>
-          ) : (
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Name</label>
-                <input required type="text" name="name" value={formState.name} onChange={handleChange} className="form-input" placeholder="Your full name" />
-              </div>
-              
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Email</label>
-                <input required type="email" name="email" value={formState.email} onChange={handleChange} className="form-input" placeholder="you@example.com" />
-              </div>
-              
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Subject</label>
-                <input required type="text" name="subject" value={formState.subject} onChange={handleChange} className="form-input" placeholder="How can we help?" />
-              </div>
-              
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Message</label>
-                <textarea required name="message" value={formState.message} onChange={handleChange} className="form-input" placeholder="Write your message here..." rows="5" style={{ resize: 'vertical', fontFamily: 'var(--font-sans)' }}></textarea>
-              </div>
+          <AnimatePresence mode="wait">
+            {submitted ? (
+              <motion.div 
+                key="success"
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.4 }}
+                style={{
+                  padding: '2.5rem 2rem',
+                  textAlign: 'center',
+                  backgroundColor: 'var(--color-secondary)',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--frutlle-gold)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+              >
+                <div style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--frutlle-red)',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 1.25rem'
+                }}>
+                  <CheckCircle2 size={32} />
+                </div>
+                <h3 style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: '1.6rem',
+                  color: 'var(--frutlle-dark-red)',
+                  marginBottom: '0.75rem'
+                }}>
+                  Thank You{lastSubmittedName ? `, ${lastSubmittedName}` : ''}!
+                </h3>
+                <p style={{
+                  color: 'var(--color-text)',
+                  fontSize: '1rem',
+                  lineHeight: '1.6',
+                  maxWidth: '420px',
+                  margin: '0 auto 1.5rem'
+                }}>
+                  Your message has been received securely. Our team will review your inquiry and reply to{' '}
+                  <strong style={{ color: 'var(--frutlle-dark-red)' }}>{lastSubmittedEmail || 'your email'}</strong> as soon as possible.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResetForm}
+                  className="btn btn-outline"
+                  style={{
+                    borderColor: 'var(--frutlle-dark-red)',
+                    color: 'var(--frutlle-dark-red)',
+                    fontSize: '0.9rem',
+                    padding: '0.6rem 1.5rem'
+                  }}
+                >
+                  Send Another Message
+                </button>
+              </motion.div>
+            ) : (
+              <motion.form 
+                key="form"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onSubmit={handleSubmit} 
+                style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}
+              >
+                {errorMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '0.85rem 1rem',
+                      backgroundColor: 'rgba(169, 27, 36, 0.08)',
+                      border: '1px solid var(--frutlle-red)',
+                      borderRadius: 'var(--radius-md)',
+                      color: 'var(--frutlle-red)',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    <AlertCircle size={20} style={{ flexShrink: 0 }} />
+                    <span>{errorMessage}</span>
+                  </motion.div>
+                )}
 
-              <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem' }}>
-                Send Message
-              </button>
-            </form>
-          )}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" htmlFor="contact-name">Name</label>
+                  <input 
+                    id="contact-name"
+                    required 
+                    type="text" 
+                    name="name" 
+                    disabled={loading}
+                    value={formState.name} 
+                    onChange={handleChange} 
+                    className="form-input" 
+                    placeholder="Your full name" 
+                  />
+                </div>
+                
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" htmlFor="contact-email">Email</label>
+                  <input 
+                    id="contact-email"
+                    required 
+                    type="email" 
+                    name="email" 
+                    disabled={loading}
+                    value={formState.email} 
+                    onChange={handleChange} 
+                    className="form-input" 
+                    placeholder="you@example.com" 
+                  />
+                </div>
+                
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" htmlFor="contact-subject">Subject</label>
+                  <input 
+                    id="contact-subject"
+                    required 
+                    type="text" 
+                    name="subject" 
+                    disabled={loading}
+                    value={formState.subject} 
+                    onChange={handleChange} 
+                    className="form-input" 
+                    placeholder="How can we help?" 
+                  />
+                </div>
+                
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" htmlFor="contact-message">Message</label>
+                  <textarea 
+                    id="contact-message"
+                    required 
+                    name="message" 
+                    disabled={loading}
+                    value={formState.message} 
+                    onChange={handleChange} 
+                    className="form-input" 
+                    placeholder="Write your message here..." 
+                    rows="5" 
+                    style={{ resize: 'vertical', fontFamily: 'var(--font-sans)' }}
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="btn btn-primary" 
+                  style={{ 
+                    marginTop: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    opacity: loading ? 0.8 : 1,
+                    cursor: loading ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      <span>Sending Message...</span>
+                    </>
+                  ) : (
+                    'Send Message'
+                  )}
+                </button>
+              </motion.form>
+            )}
+          </AnimatePresence>
         </motion.div>
 
       </div>

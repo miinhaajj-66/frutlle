@@ -30,11 +30,11 @@ const OrderConfirmation = () => {
       <p style={{ fontSize: '1.2rem', marginBottom: 'var(--space-sm)' }}>
         Thank you for your purchase, {orderDetails.fullName}.
       </p>
-      <p style={{ color: 'var(--color-text)', marginBottom: 'var(--space-xl)' }}>
+      <p style={{ color: 'var(--color-text)', marginBottom: 'var(--space-xl)', wordBreak: 'break-word', maxWidth: '100%' }}>
         Your order number is <strong style={{ color: 'var(--color-black)' }}>{orderDetails.orderId}</strong>
       </p>
       
-      <div style={{ background: 'var(--color-white)', padding: 'var(--space-xl)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', textAlign: 'left', maxWidth: '500px', width: '100%', marginBottom: 'var(--space-2xl)' }}>
+      <div style={{ background: 'var(--color-white)', padding: 'clamp(1.25rem, 4vw, var(--space-xl))', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', textAlign: 'left', maxWidth: '500px', width: '100%', marginBottom: 'var(--space-2xl)', boxSizing: 'border-box' }}>
         <h3 style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Delivery Details</h3>
         <p><strong>Address:</strong> {orderDetails.address}</p>
         <p><strong>City:</strong> {orderDetails.city}, {orderDetails.state} {orderDetails.pincode}</p>

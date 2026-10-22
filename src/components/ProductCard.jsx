@@ -1,10 +1,39 @@
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { formatCurrency } from '../utils/currency';
 import './ProductCard.css';
 
 const ProductCard = ({ product, index }) => {
   const { addToCart } = useCart();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleNavigate = (e) => {
+    e.preventDefault();
+    navigate(`/products/${product._id || product.id}`);
+  };
+
+  const isOutOfStock = product.countInStock !== undefined && product.countInStock <= 0;
+
+  const handleAddToCart = (e) => {
+    e.stopPropagation();
+    if (isOutOfStock) return;
+    if (!user) {
+      navigate('/login', {
+        state: {
+          from: location,
+          message: 'Please log in to continue.',
+          action: 'addToCart',
+          product
+        }
+      });
+      return;
+    }
+    addToCart(product);
+  };
 
   return (
     <motion.div 
@@ -14,31 +43,46 @@ const ProductCard = ({ product, index }) => {
       viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
     >
-      <Link to={`/products/${product.id}`} className="product-image-container">
-        <motion.img 
+      <div 
+        className="product-image-container" 
+        onClick={handleNavigate}
+        style={{ cursor: 'pointer' }}
+      >
+        <img 
           src={product.image} 
           alt={product.name} 
           className="product-image"
-          whileHover={{ scale: 1.05 }}
-          transition={{ duration: 0.6 }}
         />
         <div className="product-overlay">
-          <span>View Details</span>
+          <span onClick={handleNavigate}>View Details</span>
         </div>
-      </Link>
+      </div>
       
       <div className="product-info">
         <p className="product-category">{product.category}</p>
-        <Link to={`/products/${product.id}`}>
+        <Link to={`/products/${product._id || product.id}`}>
           <h3 className="product-name">{product.name}</h3>
         </Link>
-        <p className="product-price">${product.price.toFixed(2)}</p>
+        <p className="product-price">
+          {product.salePrice ? (
+            <>
+              <span style={{ textDecoration: 'line-through', color: '#999', marginRight: '8px', fontSize: '0.9em' }}>
+                {formatCurrency(product.price)}
+              </span>
+              <span>{formatCurrency(product.salePrice)}</span>
+            </>
+          ) : (
+            formatCurrency(product.price)
+          )}
+        </p>
         
         <button 
           className="btn btn-primary add-to-cart-btn"
-          onClick={() => addToCart(product)}
+          onClick={handleAddToCart}
+          disabled={isOutOfStock}
+          style={isOutOfStock ? { backgroundColor: '#E2DFD9', color: '#8C857B', cursor: 'not-allowed' } : {}}
         >
-          Add to Cart
+          {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
         </button>
       </div>
     </motion.div>

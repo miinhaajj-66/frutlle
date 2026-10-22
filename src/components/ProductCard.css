@@ -86,15 +86,45 @@
 }
 
 .product-price {
-  font-family: var(--font-serif);
-  font-size: 1.2rem;
-  color: var(--color-primary);
+  font-family: var(--font-sans);
+  font-size: 1.18rem;
+  color: #1A1A1A;
   margin-bottom: var(--space-lg);
   font-weight: 600;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums lining-nums;
+  -webkit-font-smoothing: antialiased;
 }
 
 .add-to-cart-btn {
   margin-top: auto;
   width: 100%;
   padding: 0.75rem;
+  min-height: 44px;
+}
+
+@media (max-width: 600px) {
+  .product-info {
+    padding: 1.25rem 1rem;
+  }
+  .product-name {
+    font-size: 1.1rem;
+  }
+  .product-price {
+    font-size: 1.05rem;
+    margin-bottom: var(--space-md);
+  }
+  .add-to-cart-btn {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .product-info {
+    padding: 1rem 0.75rem;
+  }
+  .product-name {
+    font-size: 1rem;
+  }
 }

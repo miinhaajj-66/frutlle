@@ -8,24 +8,43 @@ import './Login.css';
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState({ type: '', message: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { forgotPassword, loading } = useAuth();
+  const { forgotPassword } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setStatus({ type: '', message: '' });
     
-    if (!email) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
       setStatus({ type: 'error', message: 'Please enter your email address.' });
       return;
     }
 
-    const result = await forgotPassword(email);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setStatus({ type: 'error', message: 'Please enter a valid email address.' });
+      return;
+    }
 
-    if (result && !result.success) {
-      setStatus({ type: 'error', message: result.error || 'Failed to send reset link.' });
-    } else {
-      setStatus({ type: 'success', message: 'Password reset link sent to your email.' });
+    setIsSubmitting(true);
+    try {
+      const result = await forgotPassword(trimmedEmail);
+
+      if (result && !result.success) {
+        setStatus({ type: 'error', message: result.error || 'Failed to send reset link. Please try again.' });
+      } else {
+        setStatus({ 
+          type: 'success', 
+          message: 'If an account exists for this email, a password reset link has been sent. Please check your inbox and spam folder.' 
+        });
+      }
+    } catch (err) {
+      setStatus({ type: 'error', message: err.message || 'An unexpected error occurred. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -44,7 +63,7 @@ const ForgotPassword = () => {
         transition={{ delay: 0.1, duration: 0.4 }}
       >
         <div className="auth-header">
-          <img src="/Glossy%20Frutlle%20Origin%20Logo.png" alt="FRUTLLE" className="auth-logo" />
+          <img src="/Frutlle%20Logo.png" alt="FRUTLLE" className="auth-logo" />
           <h1 className="auth-title">Reset Password</h1>
           <p className="auth-subtitle">Enter your email and we'll send you a link to reset your password.</p>
         </div>
@@ -79,6 +98,7 @@ const ForgotPassword = () => {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isSubmitting}
                   required
                 />
               </div>
@@ -86,9 +106,9 @@ const ForgotPassword = () => {
               <button 
                 type="submit" 
                 className="auth-submit-btn"
-                disabled={loading}
+                disabled={isSubmitting}
               >
-                {loading ? (
+                {isSubmitting ? (
                   <>
                     <Loader2 className="auth-spinner" size={20} />
                     Sending Link...

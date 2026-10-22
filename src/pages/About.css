@@ -1,0 +1,380 @@
+/* Premium FRUTLLE About Page CSS */
+
+:root {
+  --about-bg-cream: #FDFBF7;
+  --about-text-charcoal: #2C2C2C;
+  --about-accent-berry: #8E2B3E;
+  --about-accent-green: #6C7A5D;
+  --about-font-serif: "Playfair Display", "Baskerville", "Georgia", serif;
+  --about-font-sans: "Inter", "Helvetica Neue", "Arial", sans-serif;
+  --about-space-sm: 1rem;
+  --about-space-md: 2.5rem;
+  --about-space-lg: 5rem;
+  --about-space-xl: 8rem;
+}
+
+.about-page {
+  background-color: var(--about-bg-cream);
+  color: var(--about-text-charcoal);
+  font-family: var(--about-font-sans);
+  overflow-x: hidden;
+  padding-bottom: var(--about-space-xl);
+}
+
+.about-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 5%;
+}
+
+/* 1. HERO SECTION */
+.about-hero {
+  padding: var(--about-space-xl) 5% var(--about-space-lg);
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+}
+
+.about-hero-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: var(--about-space-lg);
+  align-items: center;
+}
+
+.about-eyebrow {
+  display: block;
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--about-accent-berry);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.about-hero-title {
+  font-family: var(--about-font-serif);
+  font-size: clamp(3rem, 5vw, 4.5rem);
+  line-height: 1.1;
+  font-weight: 400;
+  margin-bottom: 2rem;
+  color: var(--about-text-charcoal);
+  letter-spacing: -0.02em;
+}
+
+.about-hero-subtitle {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: #555;
+  max-width: 90%;
+}
+
+.about-hero-image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 65vh;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+}
+
+.about-hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.7s ease;
+}
+
+.about-hero-image-wrapper:hover .about-hero-image {
+  transform: scale(1.03);
+}
+
+/* 2. BRAND STORY SECTION */
+.about-story {
+  padding: var(--about-space-xl) 0;
+  background-color: #FFFFFF;
+}
+
+.about-story-grid {
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  gap: var(--about-space-xl);
+  align-items: center;
+}
+
+.about-section-title {
+  font-family: var(--about-font-serif);
+  font-size: 2.5rem;
+  font-weight: 400;
+  margin-bottom: 2.5rem;
+  color: var(--about-accent-berry);
+}
+
+.about-story-paragraphs p {
+  font-size: 1.15rem;
+  line-height: 1.8;
+  color: #444;
+  margin-bottom: 1.5rem;
+}
+
+.about-story-image-wrapper {
+  width: 100%;
+  height: 700px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.about-story-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 3. PHILOSOPHY SECTION */
+.about-philosophy {
+  padding: var(--about-space-xl) 0;
+  text-align: center;
+  background-color: var(--about-bg-cream);
+}
+
+.about-philosophy-content {
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.about-decorative-line {
+  width: 2px;
+  height: 60px;
+  background-color: var(--about-accent-berry);
+  margin-bottom: 2rem;
+  display: block;
+}
+
+.about-philosophy-title {
+  font-family: var(--about-font-serif);
+  font-size: 3rem;
+  font-weight: 400;
+  margin-bottom: 2rem;
+  color: var(--about-text-charcoal);
+  font-style: italic;
+}
+
+.about-philosophy-text {
+  font-size: 1.35rem;
+  line-height: 1.8;
+  color: #555;
+  font-family: var(--about-font-serif);
+}
+
+/* 4. NATURALLY SIMPLE SECTION */
+.about-simple {
+  padding: var(--about-space-xl) 0;
+  background-color: #FFFFFF;
+}
+
+.about-simple-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--about-space-lg);
+  align-items: center;
+}
+
+.about-simple-image-wrapper {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.05);
+}
+
+.about-simple-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.about-simple-text {
+  padding: 0 5%;
+}
+
+.about-simple-heading {
+  font-family: var(--about-font-serif);
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  font-weight: 400;
+  line-height: 1.3;
+  margin-bottom: 2rem;
+  color: var(--about-text-charcoal);
+}
+
+.about-simple-description {
+  font-size: 1.25rem;
+  line-height: 1.7;
+  color: #666;
+}
+
+/* 5. CLOSING BRAND STATEMENT */
+.about-closing {
+  padding: calc(var(--about-space-xl) * 1.5) 5%;
+  background-color: var(--about-bg-cream);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-closing-content {
+  max-width: 900px;
+}
+
+.about-closing-statement {
+  font-family: var(--about-font-serif);
+  font-size: clamp(2.5rem, 4vw, 3.5rem);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--about-text-charcoal);
+  margin-bottom: 4rem;
+  font-style: italic;
+}
+
+.about-closing-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.about-closing-logo {
+  font-family: var(--about-font-sans);
+  font-size: 1.5rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--about-accent-berry);
+  font-weight: 700;
+}
+
+.about-closing-tagline {
+  font-family: var(--about-font-serif);
+  font-size: 1.1rem;
+  color: #666;
+  font-style: italic;
+}
+
+/* RESPONSIVE DESIGN */
+@media (max-width: 1024px) {
+  .about-hero-container {
+    grid-template-columns: 1fr;
+    gap: var(--about-space-md);
+  }
+
+  .about-hero-content {
+    text-align: center;
+  }
+  
+  .about-hero-subtitle {
+    margin: 0 auto;
+  }
+
+  .about-hero-image-wrapper {
+    height: 50vh;
+    margin-top: 2rem;
+  }
+
+  .about-story-grid {
+    grid-template-columns: 1fr;
+    gap: var(--about-space-md);
+  }
+  
+  .about-story-image-wrapper {
+    height: 500px;
+    order: -1; /* image on top for mobile */
+  }
+
+  .about-simple-grid {
+    grid-template-columns: 1fr;
+    gap: var(--about-space-lg);
+    text-align: center;
+  }
+  
+  .about-simple-image-wrapper {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .about-hero {
+    padding: var(--about-space-md) 5% var(--about-space-md);
+    min-height: auto;
+  }
+
+  .about-hero-title {
+    font-size: clamp(2rem, 7vw, 3rem);
+  }
+
+  .about-hero-subtitle {
+    font-size: 1.05rem;
+    max-width: 100%;
+  }
+
+  .about-hero-image-wrapper {
+    height: 40vh;
+    min-height: 240px;
+  }
+  
+  .about-story {
+    padding: var(--about-space-lg) 0;
+  }
+
+  .about-story-image-wrapper {
+    height: 320px;
+  }
+
+  .about-philosophy {
+    padding: var(--about-space-lg) 0;
+  }
+
+  .about-philosophy-title {
+    font-size: clamp(1.8rem, 5vw, 2.5rem);
+  }
+
+  .about-philosophy-text {
+    font-size: 1.1rem;
+  }
+
+  .about-simple {
+    padding: var(--about-space-lg) 0;
+  }
+
+  .about-closing {
+    padding: var(--about-space-lg) 5%;
+  }
+
+  .about-closing-statement {
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    margin-bottom: 2.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .about-hero-title {
+    font-size: clamp(1.75rem, 8vw, 2.4rem);
+  }
+  .about-section-title {
+    font-size: 1.85rem;
+    margin-bottom: 1.5rem;
+  }
+  .about-story-paragraphs p {
+    font-size: 1rem;
+  }
+  .about-story-image-wrapper {
+    height: 240px;
+  }
+  .about-simple-image-wrapper {
+    max-width: 260px;
+  }
+}

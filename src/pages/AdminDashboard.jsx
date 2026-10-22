@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { formatCurrency } from '../utils/currency';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -27,7 +28,7 @@ const AdminDashboard = () => {
           </div>
           <div style={{ padding: '1.5rem', backgroundColor: 'var(--frutlle-cream)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Revenue</h3>
-            <p style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--frutlle-red)', margin: 0 }}>$4,250</p>
+            <p style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--frutlle-red)', margin: 0 }}>{formatCurrency(4250)}</p>
           </div>
           <div style={{ padding: '1.5rem', backgroundColor: 'var(--frutlle-cream)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Active Products</h3>
