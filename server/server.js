@@ -16,6 +16,7 @@ import couponRoutes from './routes/couponRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
+import { razorpayWebhook } from './controllers/orderController.js';
 
 // Load env vars
 dotenv.config();
@@ -30,6 +31,14 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_ANON_KEY) {
 if (missingEnv.length > 0) {
   console.error(`[FATAL CONFIG] Missing required environment variable(s): ${missingEnv.join(', ')}`);
   console.error('[FATAL CONFIG] Ensure your .env file is populated with valid configuration.');
+}
+
+// Razorpay configuration check (never log secrets)
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  const isTestMode = process.env.RAZORPAY_KEY_ID.startsWith('rzp_test_');
+  console.log(`[PAYMENT] Razorpay initialized (Mode: ${isTestMode ? 'TEST' : 'LIVE'}, Key ID: ${process.env.RAZORPAY_KEY_ID.substring(0, 8)}...)`);
+} else {
+  console.warn('[PAYMENT] Razorpay credentials not configured. Online payments will require RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
 }
 
 const app = express();
@@ -58,7 +67,13 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json());
+
+// Preserve rawBody buffer for Razorpay webhook signature verification
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
@@ -77,6 +92,9 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/messages', messageRoutes);
+
+// Additional webhook route alias for Razorpay dashboard configuration convenience
+app.post('/api/webhook/razorpay', razorpayWebhook);
 
 // Error Middleware
 app.use(notFound);

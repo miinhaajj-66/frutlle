@@ -1,5 +1,7 @@
+import crypto from 'crypto';
 import supabase from '../config/supabase.js';
 import { FREE_SHIPPING_THRESHOLD, STANDARD_SHIPPING_FEE, TAX_RATE } from '../utils/currency.js';
+import { getRazorpayInstance, getRazorpayKeyId, isRazorpayConfigured } from '../config/razorpay.js';
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -155,21 +157,62 @@ const addOrderItems = async (req, res, next) => {
       }
     }
 
-    // 7. Clear the user's persistent database cart now that the order is placed
-    try {
-      await supabase
-        .from('user_carts')
-        .upsert(
-          { user_id: userId, items: [], updated_at: new Date().toISOString() },
-          { onConflict: 'user_id' }
-        );
-    } catch (cartCleanupErr) {
-      console.warn('[ORDER] Could not clear user_carts after order placement:', cartCleanupErr.message);
+    // 7. If payment method is online, initialize Razorpay order with database-validated total
+    let razorpayOrderData = null;
+    if (paymentMethod === 'online') {
+      try {
+        const razorpay = getRazorpayInstance();
+        const amountInPaise = Math.round(totalPrice * 100);
+
+        const rzpOrder = await razorpay.orders.create({
+          amount: amountInPaise,
+          currency: 'INR',
+          receipt: `rcpt_${order.id.replace(/-/g, '').slice(0, 20)}`,
+          notes: {
+            orderId: order.id,
+            userId: String(userId)
+          }
+        });
+
+        await supabase.from('orders').update({
+          payment_result: {
+            razorpay_order_id: rzpOrder.id,
+            status: 'created',
+            created_at: new Date().toISOString()
+          }
+        }).eq('id', order.id);
+
+        razorpayOrderData = {
+          id: rzpOrder.id,
+          amount: rzpOrder.amount,
+          currency: rzpOrder.currency,
+          keyId: getRazorpayKeyId()
+        };
+      } catch (rzpErr) {
+        console.error('[ORDER] Razorpay order creation failed:', rzpErr.message);
+        res.status(rzpErr.statusCode || 500);
+        throw new Error(rzpErr.message || 'Failed to initialize online payment gateway.');
+      }
+    }
+
+    // 8. Clear the user's persistent database cart (for COD immediately; for online, also cleared upon payment verification)
+    if (paymentMethod === 'cod') {
+      try {
+        await supabase
+          .from('user_carts')
+          .upsert(
+            { user_id: userId, items: [], updated_at: new Date().toISOString() },
+            { onConflict: 'user_id' }
+          );
+      } catch (cartCleanupErr) {
+        console.warn('[ORDER] Could not clear user_carts after order placement:', cartCleanupErr.message);
+      }
     }
 
     res.status(201).json({
       ...order,
-      _id: order.id
+      _id: order.id,
+      razorpayOrder: razorpayOrderData
     });
   } catch (error) {
     next(error);
@@ -331,5 +374,382 @@ const getMyOrders = async (req, res, next) => {
   }
 };
 
-export { addOrderItems, getOrders, getOrderById, updateOrderStatus, getMyOrders };
+// @desc    Create Razorpay order for an existing unpaid order
+// @route   POST /api/orders/:id/create-razorpay-order
+// @access  Private
+const createRazorpayOrder = async (req, res, next) => {
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id);
+    if (!isUuid) {
+      res.status(404);
+      throw new Error('Order not found');
+    }
+
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !order) {
+      res.status(404);
+      throw new Error('Order not found');
+    }
+
+    const userId = req.user._id || req.user.id;
+    if (req.user.role !== 'admin' && order.user_id !== userId) {
+      res.status(403);
+      throw new Error('Not authorized to access this order');
+    }
+
+    if (order.is_paid) {
+      res.status(400);
+      throw new Error('This order has already been paid.');
+    }
+
+    if (order.status === 'Cancelled') {
+      res.status(400);
+      throw new Error('Cannot process payment for a cancelled order.');
+    }
+
+    const razorpay = getRazorpayInstance();
+    const amountInPaise = Math.round(Number(order.total_price) * 100);
+
+    const rzpOrder = await razorpay.orders.create({
+      amount: amountInPaise,
+      currency: 'INR',
+      receipt: `rcpt_${order.id.replace(/-/g, '').slice(0, 20)}`,
+      notes: {
+        orderId: order.id,
+        userId: String(userId)
+      }
+    });
+
+    await supabase
+      .from('orders')
+      .update({
+        payment_result: {
+          ...(order.payment_result || {}),
+          razorpay_order_id: rzpOrder.id,
+          status: 'created',
+          updated_at: new Date().toISOString()
+        }
+      })
+      .eq('id', order.id);
+
+    res.json({
+      razorpayOrder: {
+        id: rzpOrder.id,
+        amount: rzpOrder.amount,
+        currency: rzpOrder.currency,
+        keyId: getRazorpayKeyId()
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Verify Razorpay payment signature and mark order paid
+// @route   POST /api/orders/:id/verify-payment
+// @access  Private
+const verifyRazorpayPayment = async (req, res, next) => {
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id);
+    if (!isUuid) {
+      res.status(404);
+      throw new Error('Order not found');
+    }
+
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      res.status(400);
+      throw new Error('Payment verification requires razorpay_order_id, razorpay_payment_id, and razorpay_signature');
+    }
+
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !order) {
+      res.status(404);
+      throw new Error('Order not found');
+    }
+
+    const userId = req.user._id || req.user.id;
+    if (req.user.role !== 'admin' && order.user_id !== userId) {
+      res.status(403);
+      throw new Error('Not authorized to modify this order');
+    }
+
+    // Idempotency: Prevent duplicate processing if order is already paid
+    if (order.is_paid) {
+      return res.json({
+        success: true,
+        message: 'Order is already marked as paid.',
+        order: { ...order, _id: order.id }
+      });
+    }
+
+    // Cryptographic signature check with constant-time equality
+    const secret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
+    if (!secret) {
+      res.status(500);
+      throw new Error('Server payment secret configuration missing.');
+    }
+
+    const generatedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+
+    let isSignatureValid = false;
+    try {
+      isSignatureValid = crypto.timingSafeEqual(
+        Buffer.from(generatedSignature, 'utf-8'),
+        Buffer.from(razorpay_signature, 'utf-8')
+      );
+    } catch {
+      isSignatureValid = false;
+    }
+
+    if (!isSignatureValid) {
+      res.status(400);
+      throw new Error('Invalid payment signature verification failed.');
+    }
+
+    // Fetch and verify payment entity directly from Razorpay
+    const razorpay = getRazorpayInstance();
+    const payment = await razorpay.payments.fetch(razorpay_payment_id);
+
+    if (!payment) {
+      res.status(404);
+      throw new Error('Payment details could not be retrieved from Razorpay.');
+    }
+
+    if (payment.order_id !== razorpay_order_id) {
+      res.status(400);
+      throw new Error('Payment does not match the Razorpay order ID.');
+    }
+
+    const expectedAmountInPaise = Math.round(Number(order.total_price) * 100);
+    if (Number(payment.amount) !== expectedAmountInPaise) {
+      res.status(400);
+      throw new Error(`Payment amount mismatch: expected ${expectedAmountInPaise} paise, received ${payment.amount} paise.`);
+    }
+
+    if (payment.currency !== 'INR') {
+      res.status(400);
+      throw new Error(`Payment currency mismatch: expected INR, received ${payment.currency}.`);
+    }
+
+    const validStatuses = ['captured', 'authorized'];
+    if (!validStatuses.includes(payment.status)) {
+      res.status(400);
+      throw new Error(`Payment is in an invalid status: ${payment.status}`);
+    }
+
+    const paymentResult = {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      status: payment.status,
+      method: payment.method,
+      email: payment.email || null,
+      contact: payment.contact || null,
+      verified_at: new Date().toISOString()
+    };
+
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from('orders')
+      .update({
+        is_paid: true,
+        paid_at: new Date().toISOString(),
+        status: 'Processing',
+        payment_result: paymentResult,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', order.id)
+      .select(`
+        *,
+        user:users ( id, name, email ),
+        order_items (*)
+      `)
+      .single();
+
+    if (updateError) throw updateError;
+
+    // Clear persistent cart in database upon successful payment verification
+    try {
+      await supabase
+        .from('user_carts')
+        .upsert(
+          { user_id: userId, items: [], updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
+        );
+    } catch (cartCleanupErr) {
+      console.warn('[ORDER] Could not clear user_carts after online payment verification:', cartCleanupErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Payment verified successfully',
+      order: {
+        ...updatedOrder,
+        _id: updatedOrder.id
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Handle Razorpay Webhooks (signature verified and idempotent)
+// @route   POST /api/orders/webhook
+// @access  Public (Signature Verified)
+const razorpayWebhook = async (req, res) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'];
+    const webhookSecret = (process.env.RAZORPAY_WEBHOOK_SECRET || '').trim();
+
+    if (!webhookSecret) {
+      console.warn('[WEBHOOK] RAZORPAY_WEBHOOK_SECRET is not configured on the server.');
+      return res.status(500).json({ error: 'Webhook secret not configured on server' });
+    }
+
+    if (!signature || !req.rawBody) {
+      return res.status(400).json({ error: 'Missing webhook signature or raw payload' });
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(req.rawBody)
+      .digest('hex');
+
+    let isSignatureValid = false;
+    try {
+      isSignatureValid = crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, 'utf-8'),
+        Buffer.from(signature, 'utf-8')
+      );
+    } catch {
+      isSignatureValid = false;
+    }
+
+    if (!isSignatureValid) {
+      console.error('[WEBHOOK] Invalid Razorpay webhook signature');
+      return res.status(400).json({ error: 'Invalid webhook signature' });
+    }
+
+    const event = req.body?.event;
+    console.log(`[WEBHOOK] Received valid Razorpay webhook event: "${event}"`);
+
+    if (event === 'payment.captured' || event === 'order.paid') {
+      const payment = req.body?.payload?.payment?.entity;
+      const rzpOrderId = payment?.order_id || req.body?.payload?.order?.entity?.id;
+      const dbOrderId = payment?.notes?.orderId || req.body?.payload?.order?.entity?.notes?.orderId;
+
+      let order = null;
+      if (dbOrderId) {
+        const { data } = await supabase.from('orders').select('*').eq('id', dbOrderId).maybeSingle();
+        order = data;
+      }
+      if (!order && rzpOrderId) {
+        const { data } = await supabase.from('orders').select('*').eq('payment_result->>razorpay_order_id', rzpOrderId).maybeSingle();
+        order = data;
+      }
+
+      if (!order) {
+        console.warn(`[WEBHOOK] No matching order found for rzpOrderId: ${rzpOrderId}, dbOrderId: ${dbOrderId}`);
+        return res.status(200).json({ status: 'ignored', message: 'Order not found' });
+      }
+
+      // Idempotency: Already paid check
+      if (order.is_paid) {
+        console.log(`[WEBHOOK] Order ${order.id} is already marked as paid. Skipping duplicate processing.`);
+        return res.status(200).json({ status: 'ok', message: 'Order already marked as paid' });
+      }
+
+      // Amount verification if payment entity is provided
+      if (payment) {
+        const expectedAmountInPaise = Math.round(Number(order.total_price) * 100);
+        if (Number(payment.amount) !== expectedAmountInPaise) {
+          console.error(`[WEBHOOK] Amount mismatch on order ${order.id}: expected ${expectedAmountInPaise}, received ${payment.amount}`);
+          return res.status(400).json({ error: 'Amount mismatch' });
+        }
+      }
+
+      const updatedPaymentResult = {
+        ...(order.payment_result || {}),
+        razorpay_order_id: rzpOrderId || order.payment_result?.razorpay_order_id,
+        razorpay_payment_id: payment?.id || order.payment_result?.razorpay_payment_id,
+        status: payment?.status || 'captured',
+        method: payment?.method || order.payment_result?.method,
+        webhook_processed_at: new Date().toISOString()
+      };
+
+      await supabase.from('orders').update({
+        is_paid: true,
+        paid_at: new Date(payment?.created_at ? payment.created_at * 1000 : Date.now()).toISOString(),
+        status: 'Processing',
+        payment_result: updatedPaymentResult,
+        updated_at: new Date().toISOString()
+      }).eq('id', order.id);
+
+      // Clean persistent cart in DB if user is known
+      if (order.user_id) {
+        try {
+          await supabase
+            .from('user_carts')
+            .upsert(
+              { user_id: order.user_id, items: [], updated_at: new Date().toISOString() },
+              { onConflict: 'user_id' }
+            );
+        } catch (cartCleanupErr) {
+          console.warn('[WEBHOOK] Could not clear user_carts after webhook processing:', cartCleanupErr.message);
+        }
+      }
+
+      console.log(`[WEBHOOK] Order ${order.id} marked as paid via webhook.`);
+      return res.status(200).json({ status: 'ok', message: 'Order updated successfully' });
+    }
+
+    if (event === 'payment.failed') {
+      const payment = req.body?.payload?.payment?.entity;
+      const dbOrderId = payment?.notes?.orderId;
+      console.log(`[WEBHOOK] Payment failed for order ${dbOrderId || 'unknown'}: ${payment?.error_description || 'Unknown error'}`);
+      return res.status(200).json({ status: 'ok', message: 'Failure acknowledged' });
+    }
+
+    return res.status(200).json({ status: 'ok', message: `Event ${event} acknowledged` });
+  } catch (err) {
+    console.error('[WEBHOOK ERROR]', err);
+    return res.status(500).json({ error: 'Webhook processing error' });
+  }
+};
+
+// @desc    Get Razorpay public Key ID
+// @route   GET /api/orders/razorpay/key
+// @access  Public
+const getRazorpayKey = (_req, res) => {
+  res.json({
+    keyId: getRazorpayKeyId(),
+    isConfigured: isRazorpayConfigured()
+  });
+};
+
+export {
+  addOrderItems,
+  getOrders,
+  getOrderById,
+  updateOrderStatus,
+  getMyOrders,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+  razorpayWebhook,
+  getRazorpayKey
+};
 

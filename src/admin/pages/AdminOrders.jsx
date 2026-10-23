@@ -266,7 +266,14 @@ const AdminOrders = () => {
                     </div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>{viewingOrder.user?.name || 'Customer'}</div>
                     <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{viewingOrder.user?.email || 'N/A'}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '4px' }}>Payment: {String(viewingOrder.payment_method || 'cod').toUpperCase()}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '4px' }}>
+                      Payment: {String(viewingOrder.payment_method || 'cod').toUpperCase()} {viewingOrder.is_paid ? '• Paid' : '• Unpaid'}
+                    </div>
+                    {viewingOrder.payment_result?.razorpay_payment_id && (
+                      <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '2px' }}>
+                        Ref: {viewingOrder.payment_result.razorpay_payment_id}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ border: '1px solid #f0f0f0', borderRadius: '8px', padding: '14px' }}>

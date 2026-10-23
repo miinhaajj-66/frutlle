@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { Ticket, X, Check, Loader2 } from 'lucide-react';
 import axios, { getApiUrl } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
+import { loadRazorpayScript } from '../utils/razorpay';
 
 const FREE_SHIPPING_THRESHOLD = 1000;
 const STANDARD_SHIPPING_FEE = 100.00;
@@ -17,6 +18,7 @@ const Checkout = () => {
   const [formData, setFormData] = useState({
     fullName: '', email: '', phone: '', address: '', city: '', state: '', pincode: '', paymentMethod: 'cod'
   });
+  const [processingOrder, setProcessingOrder] = useState(false);
 
   // Coupon State
   const [couponCodeInput, setCouponCodeInput] = useState('');
@@ -76,6 +78,10 @@ const Checkout = () => {
       navigate('/cart');
       return;
     }
+    if (processingOrder) return;
+
+    setProcessingOrder(true);
+
     try {
       const orderItems = cart.map(item => ({
         product: item.id,
@@ -102,13 +108,96 @@ const Checkout = () => {
       };
 
       const { data } = await axios.post(getApiUrl('/api/orders'), orderData, { withCredentials: true });
-      
-      clearCart();
-      sessionStorage.removeItem('frutlle_coupon');
-      navigate('/order-confirmation', { state: { orderId: data._id, ...formData }});
+
+      // Handle Cash on Delivery (COD) flow
+      if (formData.paymentMethod === 'cod') {
+        clearCart();
+        sessionStorage.removeItem('frutlle_coupon');
+        setProcessingOrder(false);
+        navigate('/order-confirmation', { state: { orderId: data._id, ...formData, isPaid: false } });
+        return;
+      }
+
+      // Handle Online Payment (Razorpay) flow
+      if (formData.paymentMethod === 'online') {
+        if (!data.razorpayOrder) {
+          throw new Error('Online payment order details were not returned from the server.');
+        }
+
+        const isScriptLoaded = await loadRazorpayScript();
+        if (!isScriptLoaded || !window.Razorpay) {
+          setProcessingOrder(false);
+          alert('Could not load the payment gateway SDK. Please check your internet connection or choose Cash on Delivery.');
+          return;
+        }
+
+        const options = {
+          key: data.razorpayOrder.keyId,
+          amount: data.razorpayOrder.amount,
+          currency: data.razorpayOrder.currency || 'INR',
+          name: 'FRUTLLE',
+          description: `Order #${String(data._id).slice(0, 8)}`,
+          image: '/Frutlle%20Logo.png',
+          order_id: data.razorpayOrder.id,
+          prefill: {
+            name: formData.fullName,
+            email: formData.email,
+            contact: formData.phone
+          },
+          notes: {
+            orderId: data._id
+          },
+          theme: {
+            color: '#881337'
+          },
+          handler: async function (response) {
+            try {
+              const verifyRes = await axios.post(
+                getApiUrl(`/api/orders/${data._id}/verify-payment`),
+                {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature
+                },
+                { withCredentials: true }
+              );
+
+              if (verifyRes.data?.success) {
+                clearCart();
+                sessionStorage.removeItem('frutlle_coupon');
+                navigate('/order-confirmation', {
+                  state: { orderId: data._id, ...formData, isPaid: true }
+                });
+              } else {
+                alert(verifyRes.data?.message || 'Payment verification failed. Please contact support.');
+              }
+            } catch (verifyErr) {
+              console.error('Payment verification error:', verifyErr);
+              alert(verifyErr.response?.data?.message || 'Payment verification failed. If your account was charged, please contact support.');
+            } finally {
+              setProcessingOrder(false);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setProcessingOrder(false);
+              alert('Payment was cancelled. You can retry payment anytime.');
+            }
+          }
+        };
+
+        const razorpayInstance = new window.Razorpay(options);
+        razorpayInstance.on('payment.failed', function (failureResponse) {
+          console.error('Razorpay payment failed:', failureResponse.error);
+          alert(failureResponse.error?.description || 'Payment was unsuccessful. Please try again.');
+          setProcessingOrder(false);
+        });
+        razorpayInstance.open();
+      }
     } catch (error) {
-      console.error("Order creation failed:", error);
-      alert(error.response?.data?.message || 'Order failed to process. Please try again.');
+      console.error('Order creation failed:', error);
+      alert(error.response?.data?.message || error.message || 'Order failed to process. Please try again.');
+      setProcessingOrder(false);
     }
   };
 
@@ -190,11 +279,15 @@ const Checkout = () => {
 
           <button 
             type="submit" 
-            disabled={hasOutOfStock}
+            disabled={hasOutOfStock || processingOrder}
             className="btn btn-primary" 
-            style={{ width: '100%', fontSize: '1.05rem', padding: '1rem', ...(hasOutOfStock ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
+            style={{ width: '100%', fontSize: '1.05rem', padding: '1rem', ...(hasOutOfStock || processingOrder ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
           >
-            {hasOutOfStock ? 'Cannot Place Order (Items Out of Stock)' : `Place Order (${formatCurrency(grandTotal)})`}
+            {hasOutOfStock 
+              ? 'Cannot Place Order (Items Out of Stock)' 
+              : processingOrder 
+                ? 'Processing Order...' 
+                : `Place Order (${formatCurrency(grandTotal)})`}
           </button>
         </form>
 
