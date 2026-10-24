@@ -346,13 +346,19 @@ const updateOrderStatus = async (req, res, next) => {
   }
 };
 
-// @desc    Get logged in user orders
+// @desc    Get logged in user orders with pagination, search, status/date filtering, and summary counts
 // @route   GET /api/orders/myorders
 // @access  Private
 const getMyOrders = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
-    const { data: orders, error } = await supabase
+    if (!userId) {
+      res.status(401);
+      throw new Error('Not authorized');
+    }
+
+    // 1. Fetch all customer orders with order_items
+    const { data: rawOrders, error } = await supabase
       .from('orders')
       .select(`
         *,
@@ -363,12 +369,305 @@ const getMyOrders = async (req, res, next) => {
 
     if (error) throw error;
 
-    const formattedOrders = orders.map((order) => ({
+    const allOrders = (rawOrders || []).map((order) => ({
       ...order,
       _id: order.id
     }));
 
-    res.json(formattedOrders);
+    // 2. Authoritative summary counts calculated from ALL customer orders
+    const counts = {
+      total: allOrders.length,
+      pending: allOrders.filter((o) => o.status === 'Pending').length,
+      processing: allOrders.filter((o) => o.status === 'Processing').length,
+      shipped: allOrders.filter((o) => o.status === 'Shipped').length,
+      delivered: allOrders.filter((o) => o.status === 'Delivered').length,
+      cancelled: allOrders.filter((o) => o.status === 'Cancelled').length
+    };
+
+    // Check if pagination/filtering query parameters are requested
+    const hasQueryParams = 
+      req.query.page !== undefined ||
+      req.query.limit !== undefined ||
+      req.query.status !== undefined ||
+      req.query.search !== undefined ||
+      req.query.dateRange !== undefined ||
+      req.query.paginated === 'true';
+
+    // If no query params provided, preserve legacy full array return for backward compatibility
+    if (!hasQueryParams) {
+      return res.json(allOrders);
+    }
+
+    // 3. Filter orders based on criteria
+    let filtered = [...allOrders];
+
+    // Status filter
+    const statusParam = req.query.status;
+    if (statusParam && statusParam !== 'All' && statusParam !== 'All Statuses') {
+      filtered = filtered.filter((o) => o.status === statusParam);
+    }
+
+    // Search query (Order ID substring matching)
+    const searchParam = (req.query.search || '').trim().toLowerCase();
+    if (searchParam) {
+      filtered = filtered.filter((o) => {
+        const idStr = String(o.id || o._id || '').toLowerCase();
+        return idStr.includes(searchParam);
+      });
+    }
+
+    // Date range filter
+    const dateRangeParam = req.query.dateRange;
+    if (dateRangeParam && dateRangeParam !== 'all') {
+      const now = Date.now();
+      if (dateRangeParam === '30days') {
+        const cutoff = now - 30 * 24 * 60 * 60 * 1000;
+        filtered = filtered.filter((o) => new Date(o.created_at).getTime() >= cutoff);
+      } else if (dateRangeParam === '3months') {
+        const cutoff = now - 90 * 24 * 60 * 60 * 1000;
+        filtered = filtered.filter((o) => new Date(o.created_at).getTime() >= cutoff);
+      } else if (dateRangeParam === 'year') {
+        const currentYear = new Date().getFullYear();
+        filtered = filtered.filter((o) => new Date(o.created_at).getFullYear() === currentYear);
+      }
+    }
+
+    // 4. Safe pagination (default limit 10, newest first)
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const startIndex = (page - 1) * limit;
+    const paginatedOrders = filtered.slice(startIndex, startIndex + limit);
+    const hasMore = startIndex + limit < filtered.length;
+
+    res.json({
+      orders: paginatedOrders,
+      total: filtered.length,
+      page,
+      limit,
+      hasMore,
+      counts
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Cancel order within 48-hour creation window
+// @route   POST /api/orders/:id/cancel
+// @access  Private
+const cancelOrder = async (req, res, next) => {
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id);
+    if (!isUuid) {
+      res.status(404);
+      throw new Error('Order not found');
+    }
+
+    const userId = req.user._id || req.user.id;
+
+    // Fetch order first to verify customer ownership and current constraints
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !order) {
+      res.status(404);
+      throw new Error('Order not found');
+    }
+
+    // Ownership check: customer can only cancel their own order
+    if (req.user.role !== 'admin' && order.user_id !== userId) {
+      res.status(403);
+      throw new Error('Not authorized to cancel this order');
+    }
+
+    // Check terminal statuses
+    if (order.status === 'Cancelled') {
+      res.status(400);
+      throw new Error('This order is already cancelled.');
+    }
+
+    if (order.status === 'Delivered') {
+      res.status(400);
+      throw new Error('Delivered orders cannot be cancelled.');
+    }
+
+    if (order.status === 'Shipped') {
+      res.status(400);
+      throw new Error('Orders that have already been shipped cannot be cancelled online. Please contact support.');
+    }
+
+    // Allowed statuses for cancellation: Pending or Processing
+    const cancellableStatuses = ['Pending', 'Processing'];
+    if (!cancellableStatuses.includes(order.status)) {
+      res.status(400);
+      throw new Error(`Orders in "${order.status}" status cannot be cancelled.`);
+    }
+
+    // Enforce 48-hour cutoff using consistent server-side timestamp
+    const createdAtMs = new Date(order.created_at).getTime();
+    const nowMs = Date.now();
+    const diffHours = (nowMs - createdAtMs) / (1000 * 60 * 60);
+
+    if (diffHours > 48) {
+      res.status(400);
+      throw new Error('Cancellation period has expired');
+    }
+
+    // Atomic update preventing concurrent race conditions (e.g. concurrent cancel requests or admin updates)
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from('orders')
+      .update({
+        status: 'Cancelled',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', order.id)
+      .in('status', cancellableStatuses)
+      .select(`
+        *,
+        user:users ( id, name, email ),
+        order_items (*)
+      `)
+      .single();
+
+    if (updateError || !updatedOrder) {
+      res.status(409);
+      throw new Error('Order status changed during processing or cancellation could not be completed.');
+    }
+
+    res.json({
+      success: true,
+      message: 'Order cancelled successfully',
+      order: {
+        ...updatedOrder,
+        _id: updatedOrder.id,
+        user: updatedOrder.user ? { ...updatedOrder.user, _id: updatedOrder.user.id } : null
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Check reorder availability, live catalog prices, and active inventory
+// @route   GET /api/orders/:id/reorder-check
+// @access  Private
+const checkReorderAvailability = async (req, res, next) => {
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id);
+    if (!isUuid) {
+      res.status(404);
+      throw new Error('Order not found');
+    }
+
+    const userId = req.user._id || req.user.id;
+
+    // Fetch order to verify customer ownership
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id, user_id')
+      .eq('id', req.params.id)
+      .single();
+
+    if (orderError || !order) {
+      res.status(404);
+      throw new Error('Order not found');
+    }
+
+    if (req.user.role !== 'admin' && order.user_id !== userId) {
+      res.status(403);
+      throw new Error('Not authorized to access this order');
+    }
+
+    // Fetch recorded order items
+    const { data: orderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', order.id);
+
+    if (itemsError) throw itemsError;
+
+    if (!orderItems || orderItems.length === 0) {
+      return res.json({
+        canReorder: false,
+        availableItems: [],
+        skippedItems: []
+      });
+    }
+
+    // Fetch live product states from database
+    const productIds = orderItems.map((item) => item.product_id).filter(Boolean);
+    const { data: currentProducts, error: prodError } = await supabase
+      .from('products')
+      .select('id, name, image, price, sale_price, count_in_stock, is_active, category, weight')
+      .in('id', productIds);
+
+    if (prodError) throw prodError;
+
+    const availableItems = [];
+    const skippedItems = [];
+
+    for (const item of orderItems) {
+      const liveProduct = currentProducts?.find((p) => p.id === item.product_id);
+
+      if (!liveProduct) {
+        skippedItems.push({
+          productId: item.product_id,
+          name: item.name,
+          reason: 'Product is no longer available in catalog.'
+        });
+        continue;
+      }
+
+      if (liveProduct.is_active === false) {
+        skippedItems.push({
+          productId: liveProduct.id,
+          name: liveProduct.name,
+          reason: 'Product has been deactivated.'
+        });
+        continue;
+      }
+
+      const availableStock = Number(liveProduct.count_in_stock ?? 0);
+      if (availableStock <= 0) {
+        skippedItems.push({
+          productId: liveProduct.id,
+          name: liveProduct.name,
+          reason: 'Product is currently Out of Stock.'
+        });
+        continue;
+      }
+
+      // Valid live price (never charge stale historical prices)
+      const currentPrice = liveProduct.sale_price !== null && liveProduct.sale_price !== undefined
+        ? Number(liveProduct.sale_price)
+        : Number(liveProduct.price);
+
+      // Desired quantity capped at current available stock
+      const safeQty = Math.max(1, Math.min(Number(item.qty) || 1, availableStock));
+
+      availableItems.push({
+        id: liveProduct.id,
+        _id: liveProduct.id,
+        name: liveProduct.name,
+        image: liveProduct.image || item.image,
+        price: Number(liveProduct.price),
+        salePrice: liveProduct.sale_price !== null && liveProduct.sale_price !== undefined ? Number(liveProduct.sale_price) : null,
+        currentUnitPrice: currentPrice,
+        quantity: safeQty,
+        countInStock: availableStock,
+        category: liveProduct.category,
+        weight: liveProduct.weight
+      });
+    }
+
+    res.json({
+      canReorder: availableItems.length > 0,
+      availableItems,
+      skippedItems
+    });
   } catch (error) {
     next(error);
   }
@@ -747,6 +1046,8 @@ export {
   getOrderById,
   updateOrderStatus,
   getMyOrders,
+  cancelOrder,
+  checkReorderAvailability,
   createRazorpayOrder,
   verifyRazorpayPayment,
   razorpayWebhook,

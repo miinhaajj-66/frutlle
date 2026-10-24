@@ -16,6 +16,8 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 
 import Reviews from './pages/Reviews';
+import MyOrders from './pages/MyOrders';
+import OrderDetails from './pages/OrderDetails';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminErrorBoundary from './components/AdminErrorBoundary';
 import AdminRoute from './components/AdminRoute';
@@ -67,6 +69,9 @@ function App() {
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
               <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
+              <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
+              <Route path="/orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
+              <Route path="/orders/:id" element={<ProtectedRoute><OrderDetails /></ProtectedRoute>} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/reviews" element={<Reviews />} />
 

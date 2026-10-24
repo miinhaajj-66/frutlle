@@ -5,6 +5,8 @@ import {
   getOrderById,
   updateOrderStatus,
   getMyOrders,
+  cancelOrder,
+  checkReorderAvailability,
   createRazorpayOrder,
   verifyRazorpayPayment,
   razorpayWebhook,
@@ -23,6 +25,8 @@ router.route('/myorders').get(protect, getMyOrders);
 
 router.route('/:id').get(protect, getOrderById);
 router.route('/:id/status').put(protect, admin, updateOrderStatus);
+router.route('/:id/cancel').post(protect, cancelOrder);
+router.route('/:id/reorder-check').get(protect, checkReorderAvailability);
 router.route('/:id/create-razorpay-order').post(protect, createRazorpayOrder);
 router.route('/:id/verify-payment').post(protect, verifyRazorpayPayment);
 

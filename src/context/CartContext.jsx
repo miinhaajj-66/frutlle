@@ -249,6 +249,59 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
+  const mergeCartItems = useCallback((itemsToMerge) => {
+    if (!Array.isArray(itemsToMerge) || itemsToMerge.length === 0) return;
+    setCart((prevCart) => {
+      const merged = [...prevCart];
+      for (const newItem of itemsToMerge) {
+        const nId = String(newItem.id || newItem._id);
+        const existingIndex = merged.findIndex((i) => String(i.id || i._id) === nId);
+        const maxStock = newItem.countInStock !== undefined 
+          ? Number(newItem.countInStock) 
+          : Number(newItem.count_in_stock ?? 100);
+
+        if (existingIndex > -1) {
+          const currentQty = merged[existingIndex].quantity || 1;
+          const addQty = newItem.quantity || 1;
+          merged[existingIndex] = {
+            ...merged[existingIndex],
+            price: newItem.price !== undefined ? newItem.price : merged[existingIndex].price,
+            salePrice: newItem.salePrice !== undefined ? newItem.salePrice : merged[existingIndex].salePrice,
+            countInStock: maxStock,
+            quantity: Math.min(maxStock, currentQty + addQty)
+          };
+        } else {
+          merged.push({
+            ...newItem,
+            id: nId,
+            _id: nId,
+            quantity: Math.min(maxStock, newItem.quantity || 1)
+          });
+        }
+      }
+      persistCartUpdate(merged);
+      return merged;
+    });
+  }, [persistCartUpdate]);
+
+  const replaceCartItems = useCallback((newItems) => {
+    if (!Array.isArray(newItems)) return;
+    const sanitized = newItems.map((item) => {
+      const maxStock = item.countInStock !== undefined 
+        ? Number(item.countInStock) 
+        : Number(item.count_in_stock ?? 100);
+      const safeQty = Math.min(maxStock, Math.max(1, item.quantity || 1));
+      return {
+        ...item,
+        id: String(item.id || item._id),
+        _id: String(item.id || item._id),
+        quantity: safeQty
+      };
+    });
+    setCart(sanitized);
+    persistCartUpdate(sanitized);
+  }, [persistCartUpdate]);
+
   const cartTotal = cart.reduce(
     (total, item) =>
       total + ((item.salePrice !== null && item.salePrice !== undefined) ? item.salePrice : item.price) * item.quantity,
@@ -263,6 +316,8 @@ export const CartProvider = ({ children }) => {
         cart,
         cartLoading,
         addToCart,
+        mergeCartItems,
+        replaceCartItems,
         removeFromCart,
         updateQuantity,
         clearCart,

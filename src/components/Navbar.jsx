@@ -58,14 +58,17 @@ const Navbar = () => {
 
         <div className="nav-actions">
           {user ? (
-            <div className="nav-auth-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="nav-auth-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Link to="/orders" className="cart-icon-wrapper auth-nav-icon nav-desktop-auth" style={{ textDecoration: 'none' }} title="My Orders">
+                <span style={{ fontSize: '0.82rem', fontWeight: 'bold' }}>Orders</span>
+              </Link>
               {user.role === 'admin' && (
                 <Link to="/admin" className="cart-icon-wrapper auth-nav-icon nav-desktop-auth" style={{ textDecoration: 'none' }} title="Admin Dashboard">
-                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--frutlle-red)' }}>Admin</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 'bold', color: 'var(--frutlle-red)' }}>Admin</span>
                 </Link>
               )}
               <button onClick={logout} className="cart-icon-wrapper auth-nav-icon nav-desktop-auth" style={{ background: 'none', border: 'none', cursor: 'pointer' }} title="Logout">
-                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', marginRight: '4px' }}>Logout</span>
+                <span style={{ fontSize: '0.82rem', fontWeight: 'bold' }}>Logout</span>
               </button>
             </div>
           ) : (
@@ -107,6 +110,11 @@ const Navbar = () => {
                   {link.name}
                 </Link>
               ))}
+              {user && (
+                <Link to="/orders" className="mobile-nav-link" style={{ fontWeight: 600 }}>
+                  My Orders
+                </Link>
+              )}
               {user && user.role === 'admin' && (
                 <Link to="/admin" className="mobile-nav-link" style={{ color: 'var(--frutlle-red)', fontWeight: 600 }}>
                   Admin Dashboard
