@@ -59,6 +59,17 @@ if (razorpayDiag.isConfigured) {
 
 const app = express();
 
+// Trust proxy headers from Vercel / Render / Cloudflare
+app.set('trust proxy', 1);
+
+// Prevent edge caches / CDNs from caching dynamic authenticated API endpoints or cookies
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 const allowedOrigins = [
   'https://frutlle.vercel.app',
   'http://localhost:5173',

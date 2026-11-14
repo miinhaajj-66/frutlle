@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
  * Ensures the SameSite, Secure, HttpOnly, and Path attributes match across environments.
  */
 export const getAuthCookieOptions = () => {
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
   return {
     httpOnly: true,
     secure: isProduction,
@@ -24,6 +24,8 @@ const generateToken = (res, userId) => {
     ...getAuthCookieOptions(),
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
   });
+
+  return token;
 };
 
 export default generateToken;

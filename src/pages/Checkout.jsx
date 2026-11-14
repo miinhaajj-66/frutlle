@@ -185,7 +185,12 @@ const Checkout = () => {
       razorpayInstance.open();
     } catch (error) {
       console.error('Order creation failed:', error);
-      alert(error.response?.data?.message || error.message || 'Order failed to process. Please try again.');
+      if (error.response?.status === 401) {
+        alert('Your session has expired or is unauthorized. Please sign in again to complete your order.');
+        navigate('/login', { state: { from: '/checkout' } });
+      } else {
+        alert(error.response?.data?.message || error.message || 'Order failed to process. Please try again.');
+      }
       setProcessingOrder(false);
     }
   };

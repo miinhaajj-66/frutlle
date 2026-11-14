@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/api",
+      "destination": "https://frutlle.onrender.com/api"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://frutlle.onrender.com/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://frutlle.onrender.com/uploads/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
