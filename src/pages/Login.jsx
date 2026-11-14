@@ -16,6 +16,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
   
@@ -162,6 +163,7 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting || loading) return;
     setAuthError('');
     try {
       sessionStorage.removeItem('frutlle_explicit_logout');
@@ -170,21 +172,34 @@ const Login = () => {
       // ignore
     }
     
-    if (!email || !password) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
       setAuthError('Please enter both email and password.');
       return;
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail) && trimmedEmail.toLowerCase() !== 'admin@frutllejam@gmail.com') {
+      setAuthError('Please enter a valid email address.');
+      return;
+    }
+
     if (rememberMe) {
-      localStorage.setItem('frutlle_remember_email', email.trim());
+      localStorage.setItem('frutlle_remember_email', trimmedEmail);
     } else {
       localStorage.removeItem('frutlle_remember_email');
     }
 
-    const result = await login(email.trim(), password);
-
-    if (result && !result.success) {
-      setAuthError(result.error || 'Authentication failed. Please check your credentials.');
+    setIsSubmitting(true);
+    try {
+      const result = await login(trimmedEmail, password);
+      if (result && !result.success) {
+        setAuthError(result.error || 'Authentication failed. Please check your credentials.');
+      }
+    } catch (err) {
+      setAuthError(err.message || 'Authentication failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -356,9 +371,9 @@ const Login = () => {
             <button 
               type="submit" 
               className="auth-submit-btn"
-              disabled={loading || isGoogleLoading || isProcessingOAuth}
+              disabled={loading || isSubmitting || isGoogleLoading || isProcessingOAuth}
             >
-              {loading ? (
+              {loading || isSubmitting ? (
                 <>
                   <Loader2 className="auth-spinner" size={20} />
                   Authenticating...

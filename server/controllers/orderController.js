@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import supabase from '../config/supabase.js';
 import { FREE_SHIPPING_THRESHOLD, STANDARD_SHIPPING_FEE, TAX_RATE } from '../utils/currency.js';
-import { getRazorpayInstance, getRazorpayKeyId, isRazorpayConfigured } from '../config/razorpay.js';
+import { getRazorpayInstance, getRazorpayKeyId, isRazorpayConfigured, getRazorpayDiagnostics } from '../config/razorpay.js';
+import { recordCancellationAlert } from './adminNotificationController.js';
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -18,6 +19,13 @@ const addOrderItems = async (req, res, next) => {
     if (orderItems && orderItems.length === 0) {
       res.status(400);
       throw new Error('No order items');
+    }
+
+    // Enforce Online Payment via Razorpay ONLY - reject COD
+    const normalizedPaymentMethod = String(paymentMethod || '').toLowerCase().trim();
+    if (normalizedPaymentMethod !== 'online') {
+      res.status(400);
+      throw new Error('Cash on Delivery (COD) is not accepted. Only online payments via Razorpay are supported.');
     }
 
     const userId = req.user._id || req.user.id;
@@ -62,7 +70,7 @@ const addOrderItems = async (req, res, next) => {
         product_id: dbProduct.id,
         name: item.name,
         qty: item.qty,
-        image: item.image,
+        image: item.image || dbProduct.image || '/Frutlle%20Logo.png',
         price: priceToUse
       });
     }
@@ -122,7 +130,7 @@ const addOrderItems = async (req, res, next) => {
     const { data: order, error: orderError } = await supabase.from('orders').insert([{
       user_id: userId,
       shipping_address: shippingAddress,
-      payment_method: paymentMethod,
+      payment_method: 'online',
       items_price: itemsPrice,
       tax_price: taxPrice,
       shipping_price: shippingPrice,
@@ -157,56 +165,45 @@ const addOrderItems = async (req, res, next) => {
       }
     }
 
-    // 7. If payment method is online, initialize Razorpay order with database-validated total
+    // 7. Initialize Razorpay order with database-validated total
     let razorpayOrderData = null;
-    if (paymentMethod === 'online') {
+    try {
+      const razorpay = getRazorpayInstance();
+      const amountInPaise = Math.round(totalPrice * 100);
+
+      const rzpOrder = await razorpay.orders.create({
+        amount: amountInPaise,
+        currency: 'INR',
+        receipt: `rcpt_${order.id.replace(/-/g, '').slice(0, 20)}`,
+        notes: {
+          orderId: order.id,
+          userId: String(userId)
+        }
+      });
+
+      await supabase.from('orders').update({
+        payment_result: {
+          razorpay_order_id: rzpOrder.id,
+          status: 'created',
+          created_at: new Date().toISOString()
+        }
+      }).eq('id', order.id);
+
+      razorpayOrderData = {
+        id: rzpOrder.id,
+        amount: rzpOrder.amount,
+        currency: rzpOrder.currency,
+        keyId: getRazorpayKeyId()
+      };
+    } catch (rzpErr) {
+      console.error('[ORDER] Razorpay order creation failed:', rzpErr.message);
       try {
-        const razorpay = getRazorpayInstance();
-        const amountInPaise = Math.round(totalPrice * 100);
-
-        const rzpOrder = await razorpay.orders.create({
-          amount: amountInPaise,
-          currency: 'INR',
-          receipt: `rcpt_${order.id.replace(/-/g, '').slice(0, 20)}`,
-          notes: {
-            orderId: order.id,
-            userId: String(userId)
-          }
-        });
-
-        await supabase.from('orders').update({
-          payment_result: {
-            razorpay_order_id: rzpOrder.id,
-            status: 'created',
-            created_at: new Date().toISOString()
-          }
-        }).eq('id', order.id);
-
-        razorpayOrderData = {
-          id: rzpOrder.id,
-          amount: rzpOrder.amount,
-          currency: rzpOrder.currency,
-          keyId: getRazorpayKeyId()
-        };
-      } catch (rzpErr) {
-        console.error('[ORDER] Razorpay order creation failed:', rzpErr.message);
-        res.status(rzpErr.statusCode || 500);
-        throw new Error(rzpErr.message || 'Failed to initialize online payment gateway.');
+        await supabase.from('orders').update({ status: 'Cancelled' }).eq('id', order.id);
+      } catch (cancelErr) {
+        console.warn('[ORDER] Could not mark failed order as Cancelled:', cancelErr.message);
       }
-    }
-
-    // 8. Clear the user's persistent database cart (for COD immediately; for online, also cleared upon payment verification)
-    if (paymentMethod === 'cod') {
-      try {
-        await supabase
-          .from('user_carts')
-          .upsert(
-            { user_id: userId, items: [], updated_at: new Date().toISOString() },
-            { onConflict: 'user_id' }
-          );
-      } catch (cartCleanupErr) {
-        console.warn('[ORDER] Could not clear user_carts after order placement:', cartCleanupErr.message);
-      }
+      res.status(rzpErr.statusCode || 500);
+      throw new Error(rzpErr.message || 'Failed to initialize online payment gateway.');
     }
 
     res.status(201).json({
@@ -535,6 +532,13 @@ const cancelOrder = async (req, res, next) => {
     if (updateError || !updatedOrder) {
       res.status(409);
       throw new Error('Order status changed during processing or cancellation could not be completed.');
+    }
+
+    // Trigger persistent, real-time admin alert strictly after verified status transition to Cancelled
+    try {
+      await recordCancellationAlert(updatedOrder);
+    } catch (alertErr) {
+      console.warn('[ORDER CANCELLATION] Non-blocking alert warning:', alertErr.message);
     }
 
     res.json({
@@ -1030,13 +1034,20 @@ const razorpayWebhook = async (req, res) => {
   }
 };
 
-// @desc    Get Razorpay public Key ID
+// @desc    Get Razorpay public Key ID and safe configuration diagnostics
 // @route   GET /api/orders/razorpay/key
 // @access  Public
 const getRazorpayKey = (_req, res) => {
+  const diag = getRazorpayDiagnostics();
   res.json({
     keyId: getRazorpayKeyId(),
-    isConfigured: isRazorpayConfigured()
+    isConfigured: diag.isConfigured,
+    diagnostics: {
+      keyIdPresent: diag.keyIdPresent,
+      keyIdNonEmpty: diag.keyIdNonEmpty,
+      keySecretPresent: diag.keySecretPresent,
+      keySecretNonEmpty: diag.keySecretNonEmpty
+    }
   });
 };
 

@@ -11,6 +11,33 @@ const maskEmail = (str) => {
   return `${user.slice(0, 2)}***@${domain}`;
 };
 
+const withTimeout = (promise, ms = 5000) => {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(`Database query timed out after ${ms}ms`);
+      err.code = 'ETIMEDOUT';
+      reject(err);
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+};
+
+const executeWithRetry = async (fn, maxRetries = 1, delayMs = 300) => {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError;
+};
+
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
 // @access  Public
@@ -27,33 +54,70 @@ const loginUser = async (req, res, next) => {
     }
 
     const cleanEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail) && cleanEmail.toLowerCase() !== 'admin@frutllejam@gmail.com') {
+      console.warn(`[AUTH] [${correlationId}] Login rejected: Invalid email format`);
+      res.status(400);
+      throw new Error('Please enter a valid email address');
+    }
+
     console.log(`[AUTH] [${correlationId}] Login attempt for email: ${maskEmail(cleanEmail)}`);
 
-    // Case-insensitive lookup for user in public.users
-    let { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .ilike('email', cleanEmail)
-      .maybeSingle();
+    // Case-insensitive lookup for user in public.users with timeout & single retry
+    let user = null;
+    let queryError = null;
+
+    try {
+      const result = await executeWithRetry(() =>
+        withTimeout(
+          supabase
+            .from('users')
+            .select('*')
+            .ilike('email', cleanEmail)
+            .maybeSingle(),
+          5000
+        )
+      );
+      user = result?.data || null;
+      queryError = result?.error || null;
+    } catch (err) {
+      queryError = err;
+    }
 
     // Check alias variations for admin if not found directly
-    if (!user) {
+    if (!user && !queryError) {
       const lowerEmail = cleanEmail.toLowerCase();
       if (lowerEmail === 'admin@frutllejam.com' || lowerEmail === 'frutllejam@gmail.com') {
         const adminEnvEmail = (process.env.ADMIN_EMAIL || 'admin@frutllejam@gmail.com').trim();
-        const { data: aliasUser } = await supabase
-          .from('users')
-          .select('*')
-          .ilike('email', adminEnvEmail)
-          .maybeSingle();
-        if (aliasUser) {
-          user = aliasUser;
+        try {
+          const { data: aliasUser } = await withTimeout(
+            supabase
+              .from('users')
+              .select('*')
+              .ilike('email', adminEnvEmail)
+              .maybeSingle(),
+            3000
+          );
+          if (aliasUser) {
+            user = aliasUser;
+          }
+        } catch {
+          // Ignore alias query failure, proceed to validation
         }
       }
     }
 
-    if (error) {
-      console.error(`[AUTH] [${correlationId}] Downstream Supabase error:`, error.message);
+    if (queryError) {
+      const errMsg = String(queryError.message || '');
+      const errCause = String(queryError.cause || '');
+      const isDnsError = errMsg.includes('ENOTFOUND') || errCause.includes('ENOTFOUND');
+      const isTimeout = queryError.code === 'ETIMEDOUT' || errMsg.includes('timed out');
+      
+      console.error(
+        `[AUTH] [${correlationId}] Downstream database unavailable:`,
+        errMsg,
+        isDnsError ? '(DNS resolution failed - project may be paused in Supabase)' : isTimeout ? '(Query timed out)' : ''
+      );
       res.status(503);
       throw new Error('Authentication service temporarily unavailable. Please try again.');
     }
@@ -67,19 +131,25 @@ const loginUser = async (req, res, next) => {
         const tempClient = createClient(process.env.SUPABASE_URL, anonKey, {
           auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
         });
-        const { data: sbAuth, error: sbErr } = await tempClient.auth.signInWithPassword({
-          email: user.email,
-          password
-        });
+        const { data: sbAuth, error: sbErr } = await withTimeout(
+          tempClient.auth.signInWithPassword({
+            email: user.email,
+            password
+          }),
+          3000
+        );
         if (!sbErr && sbAuth?.user) {
           passwordMatches = true;
           // Synchronize new bcrypt password hash into public.users using admin client
           const salt = await bcrypt.genSalt(10);
           const hashedPassword = await bcrypt.hash(password, salt);
-          const { error: syncError } = await supabase
-            .from('users')
-            .update({ password: hashedPassword, updated_at: new Date().toISOString() })
-            .eq('id', user.id);
+          const { error: syncError } = await withTimeout(
+            supabase
+              .from('users')
+              .update({ password: hashedPassword, updated_at: new Date().toISOString() })
+              .eq('id', user.id),
+            3000
+          );
           if (syncError) {
             console.warn(`[AUTH] [${correlationId}] Notice syncing password hash:`, syncError.message);
           } else {
@@ -222,11 +292,19 @@ const googleAuth = async (req, res, next) => {
       throw new Error('Access token is required');
     }
 
-    // Verify token directly with Supabase Auth
-    const { data: { user: authUser }, error: verifyError } = await supabase.auth.getUser(accessToken);
+    // Verify token directly with Supabase Auth with timeout
+    let authUser = null;
+    let verifyError = null;
+    try {
+      const authResult = await withTimeout(supabase.auth.getUser(accessToken), 5000);
+      authUser = authResult?.data?.user;
+      verifyError = authResult?.error;
+    } catch (err) {
+      verifyError = err;
+    }
 
     if (verifyError || !authUser) {
-      console.warn(`[AUTH] [${correlationId}] Invalid Supabase token:`, verifyError?.message);
+      console.warn(`[AUTH] [${correlationId}] Invalid or unreachable Supabase token:`, verifyError?.message);
       res.status(401);
       throw new Error('Invalid or expired authentication token');
     }
@@ -240,11 +318,22 @@ const googleAuth = async (req, res, next) => {
     console.log(`[AUTH] [${correlationId}] Supabase Google auth verified for: ${maskEmail(email)}`);
 
     // Check if user already exists in public.users table by email
-    const { data: existingUser, error: findError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .maybeSingle();
+    let existingUser = null;
+    let findError = null;
+    try {
+      const findResult = await withTimeout(
+        supabase
+          .from('users')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle(),
+        5000
+      );
+      existingUser = findResult?.data;
+      findError = findResult?.error;
+    } catch (err) {
+      findError = err;
+    }
 
     if (findError) {
       console.error(`[AUTH] [${correlationId}] Database error checking existing user:`, findError.message);

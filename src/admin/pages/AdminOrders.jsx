@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import axios, { getApiUrl, getAssetUrl, getFallbackImage } from '../../utils/api';
-import { Search, Eye, X, Check, Clock, Package, MapPin, User, DollarSign } from 'lucide-react';
+import { Search, Eye, X, Check, MapPin, User, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '../../utils/currency';
 
 const AdminOrders = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { id: routeOrderId } = useParams();
+  const navigate = useNavigate();
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,8 +20,12 @@ const AdminOrders = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [targetOrderLoading, setTargetOrderLoading] = useState(false);
 
-  const fetchOrders = async () => {
+  const targetOrderId = searchParams.get('orderId') || routeOrderId || null;
+  const processedTargetRef = useRef(null);
+
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       const { data } = await axios.get(getApiUrl('/api/orders'), { withCredentials: true });
@@ -26,15 +35,76 @@ const AdminOrders = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchOrders();
+  }, [fetchOrders]);
+
+  const showFeedback = useCallback((msg) => {
+    setFeedbackMessage(msg);
+    setTimeout(() => setFeedbackMessage(''), 3500);
   }, []);
 
-  const showFeedback = (msg) => {
-    setFeedbackMessage(msg);
-    setTimeout(() => setFeedbackMessage(''), 3000);
+  const openOrderModal = useCallback((order) => {
+    setViewingOrder(order);
+    setSelectedStatus(order.status || 'Pending');
+  }, []);
+
+  // When targetOrderId is present (e.g. from notification "View Order" click),
+  // open the order modal immediately or fetch the authoritative order by ID
+  useEffect(() => {
+    if (!targetOrderId || processedTargetRef.current === targetOrderId) return;
+
+    // Check if order exists in loaded orders
+    const existing = orders.find((o) => String(o._id || o.id) === targetOrderId);
+    if (existing) {
+      processedTargetRef.current = targetOrderId;
+      openOrderModal(existing);
+      return;
+    }
+
+    // If orders are still loading, wait for fetchOrders to complete
+    if (loading) return;
+
+    // Otherwise fetch the specific order directly from backend
+    let isCancelled = false;
+    const fetchTargetOrder = async () => {
+      try {
+        setTargetOrderLoading(true);
+        const { data } = await axios.get(getApiUrl(`/api/orders/${targetOrderId}`), { withCredentials: true });
+        if (!isCancelled && data) {
+          processedTargetRef.current = targetOrderId;
+          openOrderModal(data);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          processedTargetRef.current = targetOrderId;
+          showFeedback(err.response?.data?.message || 'Could not load the requested order.');
+        }
+      } finally {
+        if (!isCancelled) setTargetOrderLoading(false);
+      }
+    };
+
+    fetchTargetOrder();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [targetOrderId, orders, loading, openOrderModal, showFeedback]);
+
+  const closeOrderModal = () => {
+    setViewingOrder(null);
+    processedTargetRef.current = null;
+    if (searchParams.has('orderId')) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('orderId');
+      setSearchParams(nextParams, { replace: true });
+    }
+    if (routeOrderId) {
+      navigate('/admin/orders', { replace: true });
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -46,15 +116,6 @@ const AdminOrders = () => {
       case 'Cancelled': return 'badge-danger';
       default: return 'badge-warning';
     }
-  };
-
-  const openOrderModal = (order) => {
-    setViewingOrder(order);
-    setSelectedStatus(order.status || 'Pending');
-  };
-
-  const closeOrderModal = () => {
-    setViewingOrder(null);
   };
 
   const handleUpdateStatus = async (e) => {
@@ -103,6 +164,13 @@ const AdminOrders = () => {
         <div style={{ padding: '12px 16px', background: '#d1fae5', color: '#065f46', borderRadius: '8px', marginBottom: '16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Check size={16} />
           {feedbackMessage}
+        </div>
+      )}
+
+      {targetOrderLoading && (
+        <div style={{ padding: '12px 16px', background: '#eff6ff', color: '#1e40af', borderRadius: '8px', marginBottom: '16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <AlertCircle size={16} />
+          Loading requested order details...
         </div>
       )}
 
@@ -267,7 +335,7 @@ const AdminOrders = () => {
                     <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>{viewingOrder.user?.name || 'Customer'}</div>
                     <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{viewingOrder.user?.email || 'N/A'}</div>
                     <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '4px' }}>
-                      Payment: {String(viewingOrder.payment_method || 'cod').toUpperCase()} {viewingOrder.is_paid ? '• Paid' : '• Unpaid'}
+                      Payment: {String(viewingOrder.payment_method || 'online').toUpperCase()} {viewingOrder.is_paid ? '• Paid' : '• Unpaid'}
                     </div>
                     {viewingOrder.payment_result?.razorpay_payment_id && (
                       <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '2px' }}>

@@ -49,6 +49,7 @@ function App() {
             <Route path="/admin" element={<AdminErrorBoundary><AdminRoute><AdminLayout /></AdminRoute></AdminErrorBoundary>}>
               <Route index element={<Dashboard />} />
               <Route path="orders" element={<AdminOrders />} />
+              <Route path="orders/:id" element={<AdminOrders />} />
               <Route path="products" element={<AdminProducts />} />
               <Route path="products/add" element={<AdminAddProduct />} />
               <Route path="messages" element={<AdminMessages />} />

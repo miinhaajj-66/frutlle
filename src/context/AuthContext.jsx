@@ -208,11 +208,20 @@ export const AuthProvider = ({ children }) => {
     if (error.response?.data?.message) {
       return error.response.data.message;
     }
+    if (error.response?.status === 400) {
+      return 'Please check your login details and try again.';
+    }
+    if (error.response?.status === 401) {
+      return 'Invalid email or password. Please try again.';
+    }
     if (error.response?.status === 502) {
       return 'Backend server is not reachable (502 Bad Gateway). Please make sure the Express backend is running on port 5000.';
     }
     if (error.response?.status === 503) {
       return 'Authentication service is temporarily unavailable. Please try again shortly.';
+    }
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      return 'Authentication request timed out. Please check your internet connection and try again.';
     }
     if (error.code === 'ERR_NETWORK') {
       return 'Network connection error. Unable to reach the server.';
@@ -225,24 +234,34 @@ export const AuthProvider = ({ children }) => {
     clearExplicitLogout();
     setLoading(true);
     try {
-      const { data } = await axios.post(getApiUrl('/api/auth/login'), { 
-        email: email.trim(), 
-        password 
-      });
+      const { data } = await axios.post(
+        getApiUrl('/api/auth/login'),
+        { 
+          email: email.trim(), 
+          password 
+        },
+        { timeout: 8000 }
+      );
       setUser(data);
       localStorage.setItem('frutlle_user', JSON.stringify(data));
       return { success: true, user: data };
     } catch (error) {
       // Fallback: If customer reset password via Supabase Auth
       try {
-        const { data: sbData, error: sbError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password
-        });
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2500));
+        const { data: sbData, error: sbError } = await Promise.race([
+          supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password
+          }),
+          timeoutPromise
+        ]);
         if (!sbError && sbData?.session?.access_token) {
-          const { data: userData } = await axios.post(getApiUrl('/api/auth/google'), {
-            accessToken: sbData.session.access_token
-          });
+          const { data: userData } = await axios.post(
+            getApiUrl('/api/auth/google'),
+            { accessToken: sbData.session.access_token },
+            { timeout: 5000 }
+          );
           setUser(userData);
           localStorage.setItem('frutlle_user', JSON.stringify(userData));
           return { success: true, user: userData };

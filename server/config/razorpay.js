@@ -4,11 +4,37 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
+ * Safe diagnostic that reports whether RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
+ * are present and non-empty. NEVER exposes or prints actual credential values.
+ * @returns {{ isConfigured: boolean, keyIdPresent: boolean, keyIdNonEmpty: boolean, keySecretPresent: boolean, keySecretNonEmpty: boolean }}
+ */
+export const getRazorpayDiagnostics = () => {
+  const keyIdRaw = process.env.RAZORPAY_KEY_ID;
+  const keySecretRaw = process.env.RAZORPAY_KEY_SECRET;
+
+  const keyIdPresent = typeof keyIdRaw === 'string';
+  const keyIdNonEmpty = keyIdPresent && keyIdRaw.trim().length > 0;
+
+  const keySecretPresent = typeof keySecretRaw === 'string';
+  const keySecretNonEmpty = keySecretPresent && keySecretRaw.trim().length > 0;
+
+  return {
+    isConfigured: keyIdNonEmpty && keySecretNonEmpty,
+    keyIdPresent,
+    keyIdNonEmpty,
+    keySecretPresent,
+    keySecretNonEmpty
+  };
+};
+
+/**
  * Checks if Razorpay credentials are fully configured in the environment.
  * @returns {boolean}
  */
 export const isRazorpayConfigured = () => {
-  return Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
+  const keyId = (process.env.RAZORPAY_KEY_ID || '').trim();
+  const keySecret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
+  return Boolean(keyId && keySecret);
 };
 
 /**

@@ -1,5 +1,5 @@
+import 'dotenv/config';
 import express from 'express';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
@@ -16,10 +16,9 @@ import couponRoutes from './routes/couponRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
+import adminNotificationRoutes from './routes/adminNotificationRoutes.js';
 import { razorpayWebhook } from './controllers/orderController.js';
-
-// Load env vars
-dotenv.config();
+import { getRazorpayDiagnostics } from './config/razorpay.js';
 
 // Startup validation for required configuration
 const requiredEnv = ['SUPABASE_URL', 'JWT_SECRET'];
@@ -33,12 +32,29 @@ if (missingEnv.length > 0) {
   console.error('[FATAL CONFIG] Ensure your .env file is populated with valid configuration.');
 }
 
-// Razorpay configuration check (never log secrets)
-if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-  const isTestMode = process.env.RAZORPAY_KEY_ID.startsWith('rzp_test_');
-  console.log(`[PAYMENT] Razorpay initialized (Mode: ${isTestMode ? 'TEST' : 'LIVE'}, Key ID: ${process.env.RAZORPAY_KEY_ID.substring(0, 8)}...)`);
+// Non-blocking diagnostic check for downstream database host
+if (process.env.SUPABASE_URL) {
+  try {
+    const parsedUrl = new URL(process.env.SUPABASE_URL);
+    import('dns').then(({ default: dns }) => {
+      dns.lookup(parsedUrl.hostname, (err) => {
+        if (err && err.code === 'ENOTFOUND') {
+          console.warn(`[DATABASE NOTICE] Supabase host "${parsedUrl.hostname}" could not be resolved (ENOTFOUND). If using Supabase Free Tier, the project may be paused. Resume the project in the Supabase Dashboard (https://supabase.com/dashboard).`);
+        } else if (!err) {
+          console.log(`[DATABASE] Supabase host "${parsedUrl.hostname}" resolved successfully.`);
+        }
+      });
+    }).catch(() => {});
+  } catch {}
+}
+
+// Razorpay configuration check (safe diagnostic: never log secret or key values)
+const razorpayDiag = getRazorpayDiagnostics();
+if (razorpayDiag.isConfigured) {
+  const isTestMode = (process.env.RAZORPAY_KEY_ID || '').startsWith('rzp_test_');
+  console.log(`[PAYMENT] Razorpay initialized (Mode: ${isTestMode ? 'TEST' : 'LIVE'})`);
 } else {
-  console.warn('[PAYMENT] Razorpay credentials not configured. Online payments will require RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
+  console.warn(`[PAYMENT] Razorpay credentials not configured: RAZORPAY_KEY_ID (present: ${razorpayDiag.keyIdPresent}, non-empty: ${razorpayDiag.keyIdNonEmpty}), RAZORPAY_KEY_SECRET (present: ${razorpayDiag.keySecretPresent}, non-empty: ${razorpayDiag.keySecretNonEmpty})`);
 }
 
 const app = express();
@@ -92,6 +108,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/admin/notifications', adminNotificationRoutes);
 
 // Additional webhook route alias for Razorpay dashboard configuration convenience
 app.post('/api/webhook/razorpay', razorpayWebhook);

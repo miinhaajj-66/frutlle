@@ -16,7 +16,7 @@ const Checkout = () => {
   const location = useLocation();
 
   const [formData, setFormData] = useState({
-    fullName: '', email: '', phone: '', address: '', city: '', state: '', pincode: '', paymentMethod: 'cod'
+    fullName: '', email: '', phone: '', address: '', city: '', state: '', pincode: '', paymentMethod: 'online'
   });
   const [processingOrder, setProcessingOrder] = useState(false);
 
@@ -40,20 +40,20 @@ const Checkout = () => {
   const grandTotal = Number((subtotalAfterDiscount + taxPrice + deliveryCharge).toFixed(2));
 
   const handleChange = (e) => {
-    setFormData({...formData, [e.target.name]: e.target.value});
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleApplyCoupon = async () => {
     if (!couponCodeInput.trim()) return;
     setValidatingCoupon(true);
     setCouponError('');
-    
+
     try {
       const { data } = await axios.post(getApiUrl('/api/coupons/validate'), {
         code: couponCodeInput,
         subtotal: cartTotal
       }, { withCredentials: true });
-      
+
       setValidCoupon(data);
       setCouponCodeInput('');
     } catch (error) {
@@ -99,7 +99,7 @@ const Checkout = () => {
           postalCode: formData.pincode,
           country: formData.state
         },
-        paymentMethod: formData.paymentMethod,
+        paymentMethod: 'online',
         itemsPrice: cartTotal,
         taxPrice: taxPrice,
         shippingPrice: deliveryCharge,
@@ -109,91 +109,80 @@ const Checkout = () => {
 
       const { data } = await axios.post(getApiUrl('/api/orders'), orderData, { withCredentials: true });
 
-      // Handle Cash on Delivery (COD) flow
-      if (formData.paymentMethod === 'cod') {
-        clearCart();
-        sessionStorage.removeItem('frutlle_coupon');
+      // Handle Online Payment (Razorpay) flow
+      if (!data.razorpayOrder) {
+        throw new Error('Online payment order details were not returned from the server.');
+      }
+
+      const isScriptLoaded = await loadRazorpayScript();
+      if (!isScriptLoaded || !window.Razorpay) {
         setProcessingOrder(false);
-        navigate('/order-confirmation', { state: { orderId: data._id, ...formData, isPaid: false } });
+        alert('Could not load the payment gateway SDK. Please check your internet connection and try again.');
         return;
       }
 
-      // Handle Online Payment (Razorpay) flow
-      if (formData.paymentMethod === 'online') {
-        if (!data.razorpayOrder) {
-          throw new Error('Online payment order details were not returned from the server.');
-        }
+      const options = {
+        key: data.razorpayOrder.keyId,
+        amount: data.razorpayOrder.amount,
+        currency: data.razorpayOrder.currency || 'INR',
+        name: 'FRUTLLE',
+        description: `Order #${String(data._id).slice(0, 8)}`,
+        image: '/Frutlle%20Logo.png',
+        order_id: data.razorpayOrder.id,
+        prefill: {
+          name: formData.fullName,
+          email: formData.email,
+          contact: formData.phone
+        },
+        notes: {
+          orderId: data._id
+        },
+        theme: {
+          color: '#881337'
+        },
+        handler: async function (response) {
+          try {
+            const verifyRes = await axios.post(
+              getApiUrl(`/api/orders/${data._id}/verify-payment`),
+              {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              },
+              { withCredentials: true }
+            );
 
-        const isScriptLoaded = await loadRazorpayScript();
-        if (!isScriptLoaded || !window.Razorpay) {
-          setProcessingOrder(false);
-          alert('Could not load the payment gateway SDK. Please check your internet connection or choose Cash on Delivery.');
-          return;
-        }
-
-        const options = {
-          key: data.razorpayOrder.keyId,
-          amount: data.razorpayOrder.amount,
-          currency: data.razorpayOrder.currency || 'INR',
-          name: 'FRUTLLE',
-          description: `Order #${String(data._id).slice(0, 8)}`,
-          image: '/Frutlle%20Logo.png',
-          order_id: data.razorpayOrder.id,
-          prefill: {
-            name: formData.fullName,
-            email: formData.email,
-            contact: formData.phone
-          },
-          notes: {
-            orderId: data._id
-          },
-          theme: {
-            color: '#881337'
-          },
-          handler: async function (response) {
-            try {
-              const verifyRes = await axios.post(
-                getApiUrl(`/api/orders/${data._id}/verify-payment`),
-                {
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature
-                },
-                { withCredentials: true }
-              );
-
-              if (verifyRes.data?.success) {
-                clearCart();
-                sessionStorage.removeItem('frutlle_coupon');
-                navigate('/order-confirmation', {
-                  state: { orderId: data._id, ...formData, isPaid: true }
-                });
-              } else {
-                alert(verifyRes.data?.message || 'Payment verification failed. Please contact support.');
-              }
-            } catch (verifyErr) {
-              console.error('Payment verification error:', verifyErr);
-              alert(verifyErr.response?.data?.message || 'Payment verification failed. If your account was charged, please contact support.');
-            } finally {
-              setProcessingOrder(false);
+            if (verifyRes.data?.success) {
+              clearCart();
+              sessionStorage.removeItem('frutlle_coupon');
+              navigate('/order-confirmation', {
+                state: { orderId: data._id, ...formData, paymentMethod: 'online', isPaid: true }
+              });
+            } else {
+              alert(verifyRes.data?.message || 'Payment verification failed. Please contact support.');
             }
-          },
-          modal: {
-            ondismiss: function () {
-              setProcessingOrder(false);
-              alert('Payment was cancelled. You can retry payment anytime.');
-            }
+          } catch (verifyErr) {
+            console.error('Payment verification error:', verifyErr);
+            alert(verifyErr.response?.data?.message || 'Payment verification failed. If your account was charged, please contact support.');
+          } finally {
+            setProcessingOrder(false);
           }
-        };
+        },
+        modal: {
+          ondismiss: function () {
+            setProcessingOrder(false);
+            alert('Payment was cancelled. You can retry payment anytime.');
+          }
+        }
+      };
 
-        const razorpayInstance = new window.Razorpay(options);
-        razorpayInstance.on('payment.failed', function (failureResponse) {
-          console.error('Razorpay payment failed:', failureResponse.error);
-          alert(failureResponse.error?.description || 'Payment was unsuccessful. Please try again.');
-          setProcessingOrder(false);
-        });
-        razorpayInstance.open();
-      }
+      const razorpayInstance = new window.Razorpay(options);
+      razorpayInstance.on('payment.failed', function (failureResponse) {
+        console.error('Razorpay payment failed:', failureResponse.error);
+        alert(failureResponse.error?.description || 'Payment was unsuccessful. Please try again.');
+        setProcessingOrder(false);
+      });
+      razorpayInstance.open();
     } catch (error) {
       console.error('Order creation failed:', error);
       alert(error.response?.data?.message || error.message || 'Order failed to process. Please try again.');
@@ -221,18 +210,18 @@ const Checkout = () => {
       className="container section"
     >
       <h1 className="heading-lg" style={{ marginBottom: 'var(--space-2xl)' }}>Checkout</h1>
-      
+
       <div className="checkout-grid">
-        
+
         {/* Checkout Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
           <h2 className="heading-sm" style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>Shipping Details</h2>
-          
+
           <div className="form-group">
             <label className="form-label">Full Name</label>
             <input required type="text" name="fullName" className="form-input" onChange={handleChange} />
           </div>
-          
+
           <div className="checkout-row-2">
             <div className="form-group">
               <label className="form-label">Email</label>
@@ -265,41 +254,78 @@ const Checkout = () => {
           </div>
 
           <h2 className="heading-sm" style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem', marginTop: 'var(--space-lg)' }}>Payment Method</h2>
-          
-          <div className="checkout-payment-methods">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input type="radio" name="paymentMethod" value="cod" checked={formData.paymentMethod === 'cod'} onChange={handleChange} />
-              Cash on Delivery
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input type="radio" name="paymentMethod" value="online" checked={formData.paymentMethod === 'online'} onChange={handleChange} />
-              Online Payment (Credit/Debit)
-            </label>
+
+          <div className="checkout-payment-methods" style={{ marginBottom: 'var(--space-md)' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '1rem 1.25rem',
+              borderRadius: 'var(--radius-md)',
+              border: '1.5px solid var(--color-primary)',
+              background: 'rgba(136, 19, 55, 0.04)',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: 'var(--color-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff' }} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, color: 'var(--color-heading)', fontSize: '0.95rem' }}>
+                    Online Payment (Razorpay)
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text)', opacity: 0.85, marginTop: '2px' }}>
+                    Credit / Debit Cards, Netbanking, UPI & Wallets
+                  </div>
+                </div>
+              </div>
+              <span style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: 'var(--color-primary)',
+                background: 'rgba(136, 19, 55, 0.08)',
+                padding: '4px 10px',
+                borderRadius: '12px',
+                flexShrink: 0
+              }}>
+                100% Secure
+              </span>
+            </div>
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={hasOutOfStock || processingOrder}
-            className="btn btn-primary" 
+            className="btn btn-primary"
             style={{ width: '100%', fontSize: '1.05rem', padding: '1rem', ...(hasOutOfStock || processingOrder ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}
           >
-            {hasOutOfStock 
-              ? 'Cannot Place Order (Items Out of Stock)' 
-              : processingOrder 
-                ? 'Processing Order...' 
-                : `Place Order (${formatCurrency(grandTotal)})`}
+            {hasOutOfStock
+              ? 'Cannot Place Order (Items Out of Stock)'
+              : processingOrder
+                ? 'Processing Payment...'
+                : `Place Order & Pay (${formatCurrency(grandTotal)})`}
           </button>
         </form>
 
         {/* Order Summary */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          
+
           {/* Discount Code Section */}
           <div style={{ background: 'var(--color-white)', padding: '1.5rem', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Ticket size={18} /> Apply Discount Code
             </h3>
-            
+
             {validCoupon ? (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', padding: '0.75rem 1rem', borderRadius: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#065f46' }}>
@@ -314,15 +340,15 @@ const Checkout = () => {
             ) : (
               <div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Enter coupon code" 
+                  <input
+                    type="text"
+                    placeholder="Enter coupon code"
                     value={couponCodeInput}
                     onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
                     style={{ flex: '1 1 180px', minWidth: '0', padding: '0.75rem 1rem', border: '1px solid var(--color-border)', borderRadius: '0.5rem', fontSize: '0.95rem' }}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleApplyCoupon())}
                   />
-                  <button 
+                  <button
                     onClick={handleApplyCoupon}
                     disabled={!couponCodeInput.trim() || validatingCoupon}
                     className="btn btn-secondary"
@@ -338,7 +364,7 @@ const Checkout = () => {
 
           <div className="checkout-summary-box">
             <h2 className="heading-sm" style={{ marginBottom: 'var(--space-lg)', borderBottom: '1px solid var(--color-border)', paddingBottom: '1rem' }}>Order Summary</h2>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
               {cart.map(item => (
                 <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
@@ -347,20 +373,20 @@ const Checkout = () => {
                 </div>
               ))}
             </div>
-            
+
             <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                 <span style={{ color: 'var(--color-text)' }}>Subtotal</span>
                 <span>{formatCurrency(cartTotal)}</span>
               </div>
-              
+
               {validCoupon && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: '#059669', fontWeight: 500 }}>
                   <span>Discount ({validCoupon.code})</span>
                   <span>-{formatCurrency(validCoupon.discount_applied)}</span>
                 </div>
               )}
-              
+
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                 <span style={{ color: 'var(--color-text)' }}>Tax (15%)</span>
                 <span>{formatCurrency(taxPrice)}</span>
@@ -370,7 +396,7 @@ const Checkout = () => {
                 <span style={{ color: 'var(--color-text)' }}>Delivery</span>
                 <span>{deliveryCharge === 0 ? 'Complimentary' : formatCurrency(deliveryCharge)}</span>
               </div>
-              
+
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)', fontSize: '1.25rem', fontWeight: '600' }}>
                 <span>Total</span>
                 <span style={{ color: 'var(--color-primary)' }}>{formatCurrency(grandTotal)}</span>

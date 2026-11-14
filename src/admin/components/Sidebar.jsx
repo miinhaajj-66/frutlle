@@ -20,12 +20,20 @@ import { useAuth } from '../../context/AuthContext';
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { logout, requestLogout, isLoggingOut } = useAuth();
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [unreadCancellationCount, setUnreadCancellationCount] = useState(0);
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCounts = async () => {
     try {
-      const { data } = await axios.get(getApiUrl('/api/messages/unread-count'), { withCredentials: true });
-      if (typeof data?.unreadCount === 'number') {
-        setUnreadMessagesCount(data.unreadCount);
+      const [msgRes, notifRes] = await Promise.allSettled([
+        axios.get(getApiUrl('/api/messages/unread-count'), { withCredentials: true }),
+        axios.get(getApiUrl('/api/admin/notifications/unread-count'), { withCredentials: true })
+      ]);
+
+      if (msgRes.status === 'fulfilled' && typeof msgRes.value.data?.unreadCount === 'number') {
+        setUnreadMessagesCount(msgRes.value.data.unreadCount);
+      }
+      if (notifRes.status === 'fulfilled' && typeof notifRes.value.data?.unreadCount === 'number') {
+        setUnreadCancellationCount(notifRes.value.data.unreadCount);
       }
     } catch {
       // Non-blocking
@@ -33,15 +41,19 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   };
 
   useEffect(() => {
-    fetchUnreadCount();
-    const handleUpdate = () => fetchUnreadCount();
+    fetchUnreadCounts();
+    const handleUpdate = () => fetchUnreadCounts();
     window.addEventListener('messages-updated', handleUpdate);
-    return () => window.removeEventListener('messages-updated', handleUpdate);
+    window.addEventListener('admin-cancellation-received', handleUpdate);
+    return () => {
+      window.removeEventListener('messages-updated', handleUpdate);
+      window.removeEventListener('admin-cancellation-received', handleUpdate);
+    };
   }, []);
 
   const navItems = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-    { name: 'Orders', path: '/admin/orders', icon: ShoppingBag },
+    { name: 'Orders', path: '/admin/orders', icon: ShoppingBag, badgeKey: 'orders' },
     { name: 'Products', path: '/admin/products', icon: Package },
     { name: 'Customers', path: '/admin/customers', icon: Users },
     { name: 'Messages', path: '/admin/messages', icon: Mail, badgeKey: 'messages' },
@@ -84,6 +96,19 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 lineHeight: '1.2'
               }}>
                 {unreadMessagesCount}
+              </span>
+            )}
+            {item.badgeKey === 'orders' && unreadCancellationCount > 0 && (
+              <span style={{
+                backgroundColor: 'var(--frutlle-red)',
+                color: '#fff',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '9999px',
+                lineHeight: '1.2'
+              }} title={`${unreadCancellationCount} unread cancellation alerts`}>
+                {unreadCancellationCount}
               </span>
             )}
           </NavLink>
