@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, AlertCircle, Info, Loader2 } from 'lucide-react';
@@ -24,6 +24,7 @@ const Login = () => {
   const { addToCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+  const hasRedirectedRef = useRef(false);
 
   // Helper to ensure safe internal redirect destinations only
   const getSafeInternalRedirect = (url, fallback = '/') => {
@@ -97,69 +98,77 @@ const Login = () => {
     checkOAuthCallback();
   }, [processOAuthCallback]);
 
-  // If already logged in, redirect based on trusted database role and process pending actions
+  // Centralized redirect handler with single-execution guard
+  const performRedirect = useCallback((currentUser) => {
+    if (!currentUser || hasRedirectedRef.current) return;
+    hasRedirectedRef.current = true;
+
+    let savedAction = null;
+    try {
+      const rawAction = sessionStorage.getItem('frutlle_oauth_pending_action');
+      if (rawAction) {
+        savedAction = JSON.parse(rawAction);
+        sessionStorage.removeItem('frutlle_oauth_pending_action');
+      }
+    } catch {
+      // ignore JSON parse error
+    }
+
+    const actionState = savedAction || location.state;
+
+    if (actionState?.action === 'addToCart' && actionState?.product) {
+      addToCart(actionState.product, actionState.quantity || 1);
+    } else if (actionState?.action === 'buyNow' && actionState?.product) {
+      addToCart(actionState.product, actionState.quantity || 1);
+      navigate('/checkout', { replace: true });
+      return;
+    }
+
+    let savedRedirect = null;
+    try {
+      savedRedirect = sessionStorage.getItem('frutlle_oauth_redirect');
+      if (savedRedirect) {
+        sessionStorage.removeItem('frutlle_oauth_redirect');
+      }
+    } catch {
+      // ignore storage access error
+    }
+
+    const rawFrom = savedRedirect || location.state?.from?.pathname || location.state?.from;
+
+    let targetFrom;
+    if (currentUser.role === 'admin') {
+      // Authorized admin: redirect directly to Admin Dashboard (or requested admin subpage)
+      if (rawFrom && typeof rawFrom === 'string' && rawFrom.startsWith('/admin') && !rawFrom.startsWith('/admin/login')) {
+        targetFrom = getSafeInternalRedirect(rawFrom, '/admin');
+      } else {
+        targetFrom = '/admin';
+      }
+    } else {
+      // Normal customer: redirect to customer-facing page (home or intended customer route)
+      // Strictly deny admin access if customer attempted to access an admin URL
+      if (rawFrom && typeof rawFrom === 'string' && !rawFrom.startsWith('/admin') && !rawFrom.startsWith('/auth/callback') && !rawFrom.startsWith('/login')) {
+        targetFrom = getSafeInternalRedirect(rawFrom, '/');
+      } else {
+        targetFrom = '/';
+      }
+    }
+
+    navigate(targetFrom, { replace: true });
+  }, [location.state, addToCart, navigate]);
+
+  // If already logged in on mount or restored via OAuth callback, redirect safely
   useEffect(() => {
-    if (user) {
+    if (user && !hasRedirectedRef.current) {
       const isExplicitlyLoggedOut = 
         sessionStorage.getItem('frutlle_explicit_logout') === 'true' ||
         localStorage.getItem('frutlle_logged_out') === 'true';
       if (isExplicitlyLoggedOut) {
         return;
       }
-      let savedAction = null;
-      try {
-        const rawAction = sessionStorage.getItem('frutlle_oauth_pending_action');
-        if (rawAction) {
-          savedAction = JSON.parse(rawAction);
-          sessionStorage.removeItem('frutlle_oauth_pending_action');
-        }
-      } catch {
-        // ignore JSON parse error
-      }
-
-      const actionState = savedAction || location.state;
-
-      if (actionState?.action === 'addToCart' && actionState?.product) {
-        addToCart(actionState.product, actionState.quantity || 1);
-      } else if (actionState?.action === 'buyNow' && actionState?.product) {
-        addToCart(actionState.product, actionState.quantity || 1);
-        navigate('/checkout', { replace: true });
-        return;
-      }
-
-      let savedRedirect = null;
-      try {
-        savedRedirect = sessionStorage.getItem('frutlle_oauth_redirect');
-        if (savedRedirect) {
-          sessionStorage.removeItem('frutlle_oauth_redirect');
-        }
-      } catch {
-        // ignore storage access error
-      }
-
-      const rawFrom = savedRedirect || location.state?.from?.pathname || location.state?.from;
-
-      let targetFrom;
-      if (user.role === 'admin') {
-        // Authorized admin: redirect directly to Admin Dashboard (or requested admin subpage)
-        if (rawFrom && typeof rawFrom === 'string' && rawFrom.startsWith('/admin') && !rawFrom.startsWith('/admin/login')) {
-          targetFrom = getSafeInternalRedirect(rawFrom, '/admin');
-        } else {
-          targetFrom = '/admin';
-        }
-      } else {
-        // Normal customer: redirect to customer-facing page (home or intended customer route)
-        // Strictly deny admin access if customer attempted to access an admin URL
-        if (rawFrom && typeof rawFrom === 'string' && !rawFrom.startsWith('/admin') && !rawFrom.startsWith('/auth/callback') && !rawFrom.startsWith('/login')) {
-          targetFrom = getSafeInternalRedirect(rawFrom, '/');
-        } else {
-          targetFrom = '/';
-        }
-      }
-
-      navigate(targetFrom, { replace: true });
+      performRedirect(user);
     }
-  }, [user, navigate, location, addToCart]);
+  }, [user, performRedirect]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -190,11 +199,19 @@ const Login = () => {
       localStorage.removeItem('frutlle_remember_email');
     }
 
+    // Dismiss iOS / mobile virtual keyboard immediately before network + navigation
+    if (typeof document !== 'undefined' && document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+
     setIsSubmitting(true);
     try {
       const result = await login(trimmedEmail, password);
       if (result && !result.success) {
         setAuthError(result.error || 'Authentication failed. Please check your credentials.');
+      } else if (result && result.success && result.user) {
+        // Direct immediate navigation upon successful login
+        performRedirect(result.user);
       }
     } catch (err) {
       setAuthError(err.message || 'Authentication failed. Please try again.');
@@ -256,7 +273,6 @@ const Login = () => {
       className="auth-page-container"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
     >
       <motion.div 

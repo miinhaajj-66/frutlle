@@ -36,7 +36,21 @@ export const AuthProvider = ({ children }) => {
         return null;
       }
       const saved = localStorage.getItem('frutlle_user');
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object') {
+        // Safe migration: silently purge any legacy token key from localStorage without disrupting user session
+        if ('token' in parsed) {
+          delete parsed.token;
+          try {
+            localStorage.setItem('frutlle_user', JSON.stringify(parsed));
+          } catch {
+            // ignore
+          }
+        }
+        return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -202,6 +216,40 @@ export const AuthProvider = ({ children }) => {
       isCancelled = true;
       subscription?.unsubscribe();
     };
+  }, []);
+
+  // iOS Safari bfcache recovery listener: safely restore state when restored from frozen history
+  useEffect(() => {
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        if (isExplicitLogoutActive()) {
+          setUser(null);
+          return;
+        }
+        try {
+          const saved = localStorage.getItem('frutlle_user');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.role) {
+              if ('token' in parsed) {
+                delete parsed.token;
+                try {
+                  localStorage.setItem('frutlle_user', JSON.stringify(parsed));
+                } catch {
+                  // ignore
+                }
+              }
+              setUser(parsed);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
   }, []);
 
   const extractErrorMessage = (error) => {
@@ -607,8 +655,36 @@ export const AuthProvider = ({ children }) => {
     requestLogout();
   };
 
+  const refreshProfile = async () => {
+    try {
+      const { data } = await axios.get(getApiUrl('/api/auth/profile'), { withCredentials: true });
+      if (data && data.role) {
+        setUser(data);
+        try {
+          localStorage.setItem('frutlle_user', JSON.stringify(data));
+        } catch {}
+        return data;
+      }
+    } catch (e) {
+      console.warn('Failed to refresh profile:', e);
+    }
+    return null;
+  };
+
+  const updateProfile = async (profileData) => {
+    const { data } = await axios.put(getApiUrl('/api/auth/profile'), profileData, { withCredentials: true });
+    if (data) {
+      setUser(prev => ({ ...(prev || {}), ...data }));
+      try {
+        localStorage.setItem('frutlle_user', JSON.stringify(data));
+      } catch {}
+    }
+    return data;
+  };
+
   const value = {
     user,
+    setUser,
     loading,
     login,
     loginCustomer,
@@ -619,6 +695,8 @@ export const AuthProvider = ({ children }) => {
     register,
     forgotPassword,
     updatePassword,
+    updateProfile,
+    refreshProfile,
     logout,
     requestLogout,
     cancelLogout,

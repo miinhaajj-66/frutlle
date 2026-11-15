@@ -124,9 +124,22 @@
   text-decoration: none;
 }
 
-.cart-icon-wrapper:hover {
+.profile-icon-wrapper {
+  color: var(--frutlle-dark-red, #94181F);
+  min-width: 38px;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.cart-icon-wrapper:hover,
+.profile-icon-wrapper:hover {
   color: var(--frutlle-red, #A91B24);
-  transform: scale(1.05);
+  transform: scale(1.06);
 }
 
 .cart-badge {

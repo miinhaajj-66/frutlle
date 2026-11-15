@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Minus, Plus, Heart, Check, Star, 
   Truck, Leaf, ShieldCheck,
-  Loader2, ShoppingBag
+  Loader2
 } from 'lucide-react';
 import axios, { getApiUrl, getAssetUrl, getFallbackImage } from '../utils/api';
 import { useCart } from '../context/CartContext';
@@ -492,20 +492,20 @@ const ProductDetails = () => {
               >
                 {isAdding ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" />
+                    <Loader2 size={18} className="animate-spin pdp-btn-icon" />
                     <span>Adding...</span>
                   </>
                 ) : addSuccess ? (
                   <>
-                    <Check size={16} strokeWidth={2.5} />
+                    <Check size={18} strokeWidth={2.5} className="pdp-btn-icon" />
                     <span>Added to Bag</span>
                   </>
                 ) : isOutOfStock ? (
                   'Out of Stock'
                 ) : (
                   <>
-                    <ShoppingBag size={16} strokeWidth={1.5} />
-                    <span>Add to Cart</span>
+                    <Plus size={18} strokeWidth={2} className="pdp-btn-icon" />
+                    <span>Add to Bag</span>
                   </>
                 )}
               </button>
@@ -744,7 +744,16 @@ const ProductDetails = () => {
                 onClick={handleAddToCart}
                 disabled={isOutOfStock || isAdding}
               >
-                {isAdding ? 'Adding...' : isOutOfStock ? 'Out of Stock' : 'Add to Bag'}
+                {isAdding ? (
+                  'Adding...'
+                ) : isOutOfStock ? (
+                  'Out of Stock'
+                ) : (
+                  <>
+                    <Plus size={15} strokeWidth={2} />
+                    <span>Add to Bag</span>
+                  </>
+                )}
               </button>
             </div>
           </motion.div>

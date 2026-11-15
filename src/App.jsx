@@ -18,6 +18,7 @@ import ResetPassword from './pages/ResetPassword';
 import Reviews from './pages/Reviews';
 import MyOrders from './pages/MyOrders';
 import OrderDetails from './pages/OrderDetails';
+import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminErrorBoundary from './components/AdminErrorBoundary';
 import AdminRoute from './components/AdminRoute';
@@ -32,7 +33,6 @@ import AdminAddCoupon from './admin/pages/AdminAddCoupon';
 import AdminMessages from './admin/pages/AdminMessages';
 import LogoutModal from './components/LogoutModal';
 import { useAuth } from './context/AuthContext';
-import { AnimatePresence } from 'framer-motion';
 
 function App() {
   const location = useLocation();
@@ -61,30 +61,30 @@ function App() {
             <Route path="/admin/login" element={<Login />} />
           </Routes>
         ) : (
-          <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
-              <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/products/:id" element={<ProductDetails />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-              <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
-              <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
-              <Route path="/orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
-              <Route path="/orders/:id" element={<ProtectedRoute><OrderDetails /></ProtectedRoute>} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/reviews" element={<Reviews />} />
+          <Routes location={location}>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/products/:id" element={<ProductDetails />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+            <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
+            <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
+            <Route path="/orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
+            <Route path="/orders/:id" element={<ProtectedRoute><OrderDetails /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/account" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/reviews" element={<Reviews />} />
 
-              {/* Auth Routes */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/auth/callback" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/admin/login" element={<Login />} />
-            </Routes>
-          </AnimatePresence>
+            {/* Auth Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/auth/callback" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/admin/login" element={<Login />} />
+          </Routes>
         )}
       </main>
       {!isAdminRoute && <Footer />}

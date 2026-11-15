@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, Menu, X, User } from 'lucide-react';
+import { ShoppingBag, Menu, X, UserRound } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -57,26 +57,30 @@ const Navbar = () => {
         </nav>
 
         <div className="nav-actions">
-          {user ? (
-            <div className="nav-auth-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Link to="/orders" className="cart-icon-wrapper auth-nav-icon nav-desktop-auth" style={{ textDecoration: 'none' }} title="My Orders">
+          {user && (
+            <div className="nav-auth-group nav-desktop-auth" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Link to="/orders" className="cart-icon-wrapper auth-nav-icon" style={{ textDecoration: 'none' }} title="My Orders">
                 <span style={{ fontSize: '0.82rem', fontWeight: 'bold' }}>Orders</span>
               </Link>
               {user.role === 'admin' && (
-                <Link to="/admin" className="cart-icon-wrapper auth-nav-icon nav-desktop-auth" style={{ textDecoration: 'none' }} title="Admin Dashboard">
+                <Link to="/admin" className="cart-icon-wrapper auth-nav-icon" style={{ textDecoration: 'none' }} title="Admin Dashboard">
                   <span style={{ fontSize: '0.82rem', fontWeight: 'bold', color: 'var(--frutlle-red)' }}>Admin</span>
                 </Link>
               )}
-              <button onClick={logout} className="cart-icon-wrapper auth-nav-icon nav-desktop-auth" style={{ background: 'none', border: 'none', cursor: 'pointer' }} title="Logout">
-                <span style={{ fontSize: '0.82rem', fontWeight: 'bold' }}>Logout</span>
-              </button>
             </div>
-          ) : (
-            <Link to="/login" className="cart-icon-wrapper auth-nav-icon nav-desktop-auth" title="Account">
-              <User size={24} strokeWidth={1.5} />
-            </Link>
           )}
           
+          {/* User/Profile Icon — Positioned immediately beside Shopping Bag on both Desktop and Mobile */}
+          <Link
+            to={user ? "/profile" : "/login"}
+            className="cart-icon-wrapper profile-icon-wrapper"
+            aria-label={user ? "My Account" : "Sign In"}
+            title={user ? `My Account (${user.name || 'Profile'})` : "Sign In / Register"}
+          >
+            <UserRound size={24} strokeWidth={1.5} />
+          </Link>
+          
+          {/* Shopping Bag Icon */}
           <Link to="/cart" className="cart-icon-wrapper" aria-label="Shopping Cart">
             <ShoppingBag size={24} strokeWidth={1.5} />
             {cartCount > 0 && (
@@ -110,27 +114,30 @@ const Navbar = () => {
                   {link.name}
                 </Link>
               ))}
-              {user && (
-                <Link to="/orders" className="mobile-nav-link" style={{ fontWeight: 600 }}>
-                  My Orders
-                </Link>
-              )}
-              {user && user.role === 'admin' && (
-                <Link to="/admin" className="mobile-nav-link" style={{ color: 'var(--frutlle-red)', fontWeight: 600 }}>
-                  Admin Dashboard
-                </Link>
-              )}
               {user ? (
-                <button 
-                  onClick={() => {
-                    setIsOpen(false);
-                    logout();
-                  }} 
-                  className="mobile-nav-link" 
-                  style={{ background: 'none', border: 'none', textAlign: 'left', width: '100%', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}
-                >
-                  Logout
-                </button>
+                <>
+                  <Link to="/profile" className="mobile-nav-link" style={{ fontWeight: 600, color: 'var(--frutlle-dark-red)' }}>
+                    My Account ({user.name ? user.name.split(' ')[0] : 'Profile'})
+                  </Link>
+                  <Link to="/orders" className="mobile-nav-link">
+                    My Orders
+                  </Link>
+                  {user.role === 'admin' && (
+                    <Link to="/admin" className="mobile-nav-link" style={{ color: 'var(--frutlle-red)', fontWeight: 600 }}>
+                      Admin Dashboard
+                    </Link>
+                  )}
+                  <button 
+                    onClick={() => {
+                      setIsOpen(false);
+                      logout();
+                    }} 
+                    className="mobile-nav-link" 
+                    style={{ background: 'none', border: 'none', textAlign: 'left', width: '100%', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', color: 'var(--frutlle-dark-red)' }}
+                  >
+                    Logout
+                  </button>
+                </>
               ) : (
                 <Link to="/login" className="mobile-nav-link">
                   Login / Register

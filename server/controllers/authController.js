@@ -257,21 +257,150 @@ const logoutUser = (req, res) => {
 // @access  Private
 const getUserProfile = async (req, res, next) => {
   try {
-    const { data: user, error } = await supabase.from('users').select('*').eq('id', req.user._id).single();
+    const userId = req.user._id || req.user.id;
+    const { data: user, error } = await supabase.from('users').select('*').eq('id', userId).single();
 
     if (error) throw error;
 
     if (user) {
+      let phone = null;
+      let shippingAddress = null;
+
+      // 1. Check Supabase Auth user_metadata
+      try {
+        const { data: authData } = await supabase.auth.admin.getUserById(userId);
+        if (authData?.user?.user_metadata) {
+          phone = authData.user.user_metadata.phone || null;
+          shippingAddress = authData.user.user_metadata.shipping_address || null;
+        }
+      } catch {
+        // Continue if direct admin lookup fails
+      }
+
+      // 2. Fallback to customer's latest order for address & phone if not yet in metadata
+      if (!shippingAddress || !phone) {
+        try {
+          const { data: latestOrder } = await supabase
+            .from('orders')
+            .select('shipping_address, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestOrder?.shipping_address) {
+            shippingAddress = shippingAddress || latestOrder.shipping_address;
+            phone = phone || latestOrder.shipping_address.phone || null;
+          }
+        } catch {
+          // ignore order lookup error
+        }
+      }
+
       res.json({
         _id: user.id,
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
+        phone: phone || null,
+        shippingAddress: shippingAddress || null,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at
       });
     } else {
       res.status(404);
       throw new Error('User not found');
     }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /api/auth/profile
+// @access  Private
+const updateUserProfile = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { name, phone, shippingAddress } = req.body || {};
+
+    const { data: user, error: fetchError } = await supabase.from('users').select('*').eq('id', userId).single();
+    if (fetchError || !user) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    const updatedName = (name !== undefined && name !== null && String(name).trim() !== '') 
+      ? String(name).trim() 
+      : user.name;
+
+    // 1. Update user record in public.users table
+    const { data: updatedUser, error: updateError } = await supabase
+      .from('users')
+      .update({
+        name: updatedName,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select('id, name, email, role, created_at, updated_at')
+      .single();
+
+    if (updateError) throw updateError;
+
+    // 2. Persist phone and structured shipping address in Supabase Auth user_metadata
+    let savedPhone = phone !== undefined ? (phone ? String(phone).trim() : null) : null;
+    let savedShippingAddress = shippingAddress !== undefined ? shippingAddress : null;
+
+    try {
+      let authUserId = user.id;
+      let existingMetadata = {};
+
+      try {
+        const { data: directAuth } = await supabase.auth.admin.getUserById(user.id);
+        if (directAuth?.user) {
+          existingMetadata = directAuth.user.user_metadata || {};
+          authUserId = directAuth.user.id;
+        }
+      } catch {
+        const { data: listData } = await supabase.auth.admin.listUsers();
+        const found = listData?.users?.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+        if (found) {
+          existingMetadata = found.user_metadata || {};
+          authUserId = found.id;
+        }
+      }
+
+      if (savedPhone === null && existingMetadata.phone) {
+        savedPhone = existingMetadata.phone;
+      }
+      if (savedShippingAddress === null && existingMetadata.shipping_address) {
+        savedShippingAddress = existingMetadata.shipping_address;
+      }
+
+      await supabase.auth.admin.updateUserById(authUserId, {
+        user_metadata: {
+          ...existingMetadata,
+          name: updatedName,
+          phone: savedPhone,
+          shipping_address: savedShippingAddress
+        }
+      });
+    } catch (metaUpdateErr) {
+      console.warn('[AUTH] Notice updating Supabase Auth user_metadata:', metaUpdateErr.message);
+    }
+
+    res.json({
+      _id: updatedUser.id,
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      phone: savedPhone,
+      shippingAddress: savedShippingAddress,
+      createdAt: updatedUser.created_at,
+      updatedAt: updatedUser.updated_at
+    });
   } catch (error) {
     next(error);
   }
@@ -448,4 +577,12 @@ const resetUserPassword = async (req, res, next) => {
   }
 };
 
-export { loginUser, registerUser, logoutUser, getUserProfile, googleAuth, resetUserPassword };
+export { 
+  loginUser, 
+  registerUser, 
+  logoutUser, 
+  getUserProfile, 
+  updateUserProfile, 
+  googleAuth, 
+  resetUserPassword 
+};

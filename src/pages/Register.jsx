@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, AlertCircle, Info, Loader2, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import './Login.css'; // Reusing the same styles for consistency
@@ -57,6 +57,11 @@ const Register = () => {
     if (result && !result.success) {
       setAuthError(result.error || 'Registration failed. Please try again.');
     } else {
+      // Dismiss iOS / mobile virtual keyboard immediately before navigation
+      if (typeof document !== 'undefined' && document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+      }
+
       if (location.state?.action === 'addToCart' && location.state?.product) {
         addToCart(location.state.product, location.state.quantity || 1);
       } else if (location.state?.action === 'buyNow' && location.state?.product) {
@@ -77,7 +82,6 @@ const Register = () => {
       className="auth-page-container"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
     >
       <motion.div 

@@ -1,0 +1,437 @@
+/* ==========================================================================
+   FRUTLLE — ULTRA-PREMIUM FULL-SCREEN ORDER CONFIRMATION EXPERIENCE
+   ========================================================================== */
+
+/* Full Viewport Canvas */
+.frutlle-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 999999;
+  background: radial-gradient(ellipse 90% 75% at 50% 45%, #008F68 0%, #005a41 45%, #022c22 80%, #01140e 100%);
+  color: #ffffff;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+  padding: max(1.75rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle animated ambient aura expanding behind hero center */
+.frutlle-ambient-aura {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(340px, 75vw, 650px);
+  height: clamp(340px, 75vw, 650px);
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.28) 0%, rgba(0, 143, 104, 0.14) 40%, rgba(0, 0, 0, 0) 70%);
+  filter: blur(35px);
+  pointer-events: none;
+  z-index: 1;
+  animation: frutlle-aura-pulse 4s ease-in-out infinite alternate;
+}
+
+@keyframes frutlle-aura-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.15);
+    opacity: 1;
+  }
+}
+
+/* Atmospheric floating light motes */
+.frutlle-motes-field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.frutlle-mote {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Header: FRUTLLE Brand Wordmark & Tagline */
+.frutlle-brand-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: 0.5rem;
+}
+
+.frutlle-brand-wordmark {
+  font-size: clamp(1.2rem, 3.5vw, 1.45rem);
+  font-weight: 800;
+  letter-spacing: 0.38em;
+  color: #ffffff;
+  margin: 0;
+  text-indent: 0.38em; /* balances wide tracking */
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  line-height: 1.1;
+}
+
+.frutlle-brand-tagline {
+  font-size: clamp(0.68rem, 2vw, 0.78rem);
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: #FDE68A; /* champagne gold */
+  margin-top: 0.4rem;
+  text-transform: uppercase;
+  opacity: 0.95;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Center Stage: Hero Success Animation */
+.frutlle-hero-stage {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 600px;
+  width: 100%;
+  margin: auto 0;
+}
+
+/* Hero White Circular Success Badge */
+.frutlle-hero-badge {
+  position: relative;
+  width: clamp(96px, 22vw, 120px);
+  height: clamp(96px, 22vw, 120px);
+  background: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: clamp(1.5rem, 4vw, 2.25rem);
+  box-shadow: 
+    0 24px 50px rgba(0, 0, 0, 0.35),
+    0 10px 24px rgba(0, 143, 104, 0.4),
+    0 0 60px rgba(52, 211, 153, 0.45);
+  flex-shrink: 0;
+}
+
+/* Soft gold accent border on check badge */
+.frutlle-hero-badge::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(251, 191, 36, 0.38); /* champagne gold ring */
+  pointer-events: none;
+}
+
+.frutlle-hero-svg {
+  width: clamp(48px, 12vw, 62px);
+  height: clamp(48px, 12vw, 62px);
+}
+
+/* Confetti burst layer around badge */
+.frutlle-burst-layer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.frutlle-burst-particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Typography in Stage */
+.frutlle-hero-title {
+  font-size: clamp(2.1rem, 6.5vw, 3.25rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #ffffff;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.1;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.frutlle-hero-subtitle {
+  font-size: clamp(1.05rem, 3.2vw, 1.35rem);
+  font-weight: 500;
+  color: #FDE68A; /* champagne-gold accent */
+  margin: 0 0 1.25rem 0;
+  line-height: 1.35;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Verified Order Reference Pill */
+.frutlle-hero-order-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.4); /* champagne gold border */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 28px;
+  padding: 0.45rem 1.15rem;
+  font-size: clamp(0.85rem, 2.4vw, 0.95rem);
+  font-weight: 600;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  margin-bottom: 1.25rem;
+}
+
+.frutlle-hero-order-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34D399; /* vibrant emerald indicator */
+  box-shadow: 0 0 8px #34D399;
+}
+
+/* Supporting Gratitude Text */
+.frutlle-hero-note {
+  font-size: clamp(0.85rem, 2.2vw, 0.95rem);
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  line-height: 1.45;
+  max-width: 380px;
+}
+
+/* Bottom Footer & Progress Line */
+.frutlle-footer-zone {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-bottom: 0.5rem;
+}
+
+.frutlle-transition-hint {
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 0.65rem;
+}
+
+.frutlle-timeline-track {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.frutlle-timeline-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FDE68A 0%, #34D399 50%, #ffffff 100%);
+  border-radius: 3px;
+  transform-origin: left;
+}
+
+/* ==========================================================================
+   VERIFYING STATE (Full-Screen Minimalist)
+   ========================================================================== */
+.frutlle-verifying-stage {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: auto 0;
+  max-width: 420px;
+  padding: 0 1rem;
+}
+
+.frutlle-verifying-halo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #FDE68A; /* champagne gold spinner */
+  border-right-color: #34D399;
+  animation: frutlle-spin 0.95s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
+  margin-bottom: 1.75rem;
+  box-shadow: 0 0 35px rgba(52, 211, 153, 0.35);
+}
+
+.frutlle-verifying-head {
+  font-size: clamp(1.4rem, 4vw, 1.85rem);
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 0.65rem 0;
+  letter-spacing: -0.02em;
+}
+
+.frutlle-verifying-copy {
+  font-size: clamp(0.88rem, 2.5vw, 0.98rem);
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ==========================================================================
+   ERROR / DELAYED STATE (Full-Screen Elegant Recovery)
+   ========================================================================== */
+.frutlle-error-stage {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: auto 0;
+  max-width: 440px;
+  padding: 2.25rem 2rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 24px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.frutlle-error-badge {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.2);
+  color: #FCA5A5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.frutlle-error-heading {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 0.65rem 0;
+}
+
+.frutlle-error-copy {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.5;
+  margin: 0 0 1.5rem 0;
+}
+
+.frutlle-error-btn {
+  background: #ffffff;
+  color: #008F68;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.frutlle-error-btn:hover {
+  transform: translateY(-1px);
+  background: #f9fafb;
+}
+
+@keyframes frutlle-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==========================================================================
+   MOBILE & VIEWPORT OPTIMIZATIONS
+   ========================================================================== */
+@media (max-width: 480px) {
+  .frutlle-fullscreen-overlay {
+    padding-top: max(1.25rem, env(safe-area-inset-top));
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+
+  .frutlle-hero-badge {
+    margin-bottom: 1.25rem;
+  }
+
+  .frutlle-hero-title {
+    font-size: 2.15rem;
+  }
+
+  .frutlle-hero-subtitle {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+
+  .frutlle-hero-order-pill {
+    padding: 0.35rem 0.95rem;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+}
+
+/* Handle shorter landscape or compact screens */
+@media (max-height: 640px) {
+  .frutlle-hero-badge {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 0.75rem;
+  }
+
+  .frutlle-hero-svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  .frutlle-hero-title {
+    font-size: 1.75rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .frutlle-hero-subtitle {
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Reduced Motion Mode */
+@media (prefers-reduced-motion: reduce) {
+  .frutlle-ambient-aura,
+  .frutlle-motes-field,
+  .frutlle-burst-layer {
+    display: none !important;
+  }
+
+  .frutlle-verifying-halo {
+    animation-duration: 2.5s !important;
+  }
+}

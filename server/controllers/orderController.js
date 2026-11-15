@@ -764,13 +764,9 @@ const verifyRazorpayPayment = async (req, res, next) => {
       throw new Error('Order not found');
     }
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      res.status(400);
-      throw new Error('Payment verification requires razorpay_order_id, razorpay_payment_id, and razorpay_signature');
-    }
-
+    // 1. Fetch order and verify customer ownership
     const { data: order, error } = await supabase
       .from('orders')
       .select('*')
@@ -788,8 +784,9 @@ const verifyRazorpayPayment = async (req, res, next) => {
       throw new Error('Not authorized to modify this order');
     }
 
-    // Idempotency: Prevent duplicate processing if order is already paid
+    // 2. IDEMPOTENCY: If order was already marked paid (e.g. by Razorpay webhook or previous callback)
     if (order.is_paid) {
+      console.log(`[VERIFY-PAYMENT] Order ${order.id} is already marked as paid. Returning verified status.`);
       return res.json({
         success: true,
         message: 'Order is already marked as paid.',
@@ -797,34 +794,49 @@ const verifyRazorpayPayment = async (req, res, next) => {
       });
     }
 
-    // Cryptographic signature check with constant-time equality
+    if (!razorpay_payment_id) {
+      res.status(400);
+      throw new Error('Payment verification requires razorpay_payment_id');
+    }
+
+    // Authoritative order ID from database order record takes precedence
+    const expectedRazorpayOrderId = order.payment_result?.razorpay_order_id || razorpay_order_id;
+    if (!expectedRazorpayOrderId) {
+      res.status(400);
+      throw new Error('Order does not have an associated Razorpay order ID.');
+    }
+
     const secret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
     if (!secret) {
       res.status(500);
       throw new Error('Server payment secret configuration missing.');
     }
 
-    const generatedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex');
+    // 3. Cryptographic signature check (if signature provided by checkout callback)
+    if (razorpay_signature) {
+      const generatedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(`${expectedRazorpayOrderId}|${razorpay_payment_id}`)
+        .digest('hex');
 
-    let isSignatureValid = false;
-    try {
-      isSignatureValid = crypto.timingSafeEqual(
-        Buffer.from(generatedSignature, 'utf-8'),
-        Buffer.from(razorpay_signature, 'utf-8')
-      );
-    } catch {
-      isSignatureValid = false;
+      let isSignatureValid = false;
+      try {
+        isSignatureValid = crypto.timingSafeEqual(
+          Buffer.from(generatedSignature, 'utf-8'),
+          Buffer.from(razorpay_signature, 'utf-8')
+        );
+      } catch {
+        isSignatureValid = false;
+      }
+
+      if (!isSignatureValid) {
+        console.warn(`[VERIFY-PAYMENT] Invalid HMAC signature provided for order ${order.id}`);
+        res.status(400);
+        throw new Error('Invalid payment signature verification failed.');
+      }
     }
 
-    if (!isSignatureValid) {
-      res.status(400);
-      throw new Error('Invalid payment signature verification failed.');
-    }
-
-    // Fetch and verify payment entity directly from Razorpay
+    // 4. Authoritative server-side verification: Fetch and verify payment directly from Razorpay API
     const razorpay = getRazorpayInstance();
     const payment = await razorpay.payments.fetch(razorpay_payment_id);
 
@@ -833,36 +845,51 @@ const verifyRazorpayPayment = async (req, res, next) => {
       throw new Error('Payment details could not be retrieved from Razorpay.');
     }
 
-    if (payment.order_id !== razorpay_order_id) {
+    // Validate that the payment belongs to the expected Razorpay order ID
+    if (!payment.order_id || payment.order_id !== expectedRazorpayOrderId) {
       res.status(400);
-      throw new Error('Payment does not match the Razorpay order ID.');
+      throw new Error(`Payment does not match the Razorpay order ID (expected: ${expectedRazorpayOrderId}, received: ${payment.order_id || 'none'}).`);
     }
 
+    // Validate amount matches database order total
     const expectedAmountInPaise = Math.round(Number(order.total_price) * 100);
     if (Number(payment.amount) !== expectedAmountInPaise) {
       res.status(400);
       throw new Error(`Payment amount mismatch: expected ${expectedAmountInPaise} paise, received ${payment.amount} paise.`);
     }
 
+    // Validate currency
     if (payment.currency !== 'INR') {
       res.status(400);
       throw new Error(`Payment currency mismatch: expected INR, received ${payment.currency}.`);
     }
 
-    const validStatuses = ['captured', 'authorized'];
-    if (!validStatuses.includes(payment.status)) {
+    // 5. Payment capture enforcement: Never mark an order paid based only on authorized status
+    let finalPayment = payment;
+    if (payment.status === 'authorized') {
+      try {
+        console.log(`[VERIFY-PAYMENT] Payment ${payment.id} is authorized. Attempting capture for ${expectedAmountInPaise} paise...`);
+        finalPayment = await razorpay.payments.capture(razorpay_payment_id, expectedAmountInPaise, 'INR');
+      } catch (captureErr) {
+        console.error(`[VERIFY-PAYMENT] Capture failed for authorized payment ${razorpay_payment_id}:`, captureErr.message);
+        res.status(400);
+        throw new Error(`Payment authorization could not be captured: ${captureErr.message}`);
+      }
+    }
+
+    if (finalPayment.status !== 'captured') {
       res.status(400);
-      throw new Error(`Payment is in an invalid status: ${payment.status}`);
+      throw new Error(`Payment is not captured. Current status: ${finalPayment.status}. Orders require captured payment.`);
     }
 
     const paymentResult = {
-      razorpay_order_id,
+      razorpay_order_id: expectedRazorpayOrderId,
       razorpay_payment_id,
-      razorpay_signature,
-      status: payment.status,
-      method: payment.method,
-      email: payment.email || null,
-      contact: payment.contact || null,
+      razorpay_signature: razorpay_signature || null,
+      status: finalPayment.status,
+      method: finalPayment.method,
+      email: finalPayment.email || null,
+      contact: finalPayment.contact || null,
       verified_at: new Date().toISOString()
     };
 
